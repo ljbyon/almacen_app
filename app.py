@@ -2,107 +2,156 @@ import io
 import os
 import streamlit as st
 import pandas as pd
+import requests
 from office365.sharepoint.client_context import ClientContext
 from office365.runtime.auth.user_credential import UserCredential
+import json
 
-st.set_page_config(page_title="Sistema de Autenticación", layout="wide")
+st.set_page_config(page_title="Sistema de Autenticación - SharePoint Lists", layout="wide")
 
 # ─────────────────────────────────────────────────────────────
 # 1. Secrets / env-vars
 # ─────────────────────────────────────────────────────────────
 try:
     SITE_URL = os.getenv("SP_SITE_URL") or st.secrets["SP_SITE_URL"]
-    FILE_ID = os.getenv("SP_FILE_ID") or st.secrets["SP_FILE_ID"]
-    FILE_NAME = os.getenv("SP_FILE_NAME") or st.secrets.get("SP_FILE_NAME", "")
     USERNAME = os.getenv("SP_USERNAME") or st.secrets["SP_USERNAME"]
     PASSWORD = os.getenv("SP_PASSWORD") or st.secrets["SP_PASSWORD"]
+    
+    # Extract base URL for REST API
+    # Example: https://yourtenant.sharepoint.com/sites/yoursite
+    BASE_API_URL = SITE_URL.rstrip('/') + "/_api/web/lists"
+    
 except KeyError as e:
     st.error(f"🔒 Falta configuración requerida: {e}")
     st.stop()
 
 # ─────────────────────────────────────────────────────────────
-# 2. SharePoint Functions
+# 2. SharePoint Lists Functions (Much Faster!)
 # ─────────────────────────────────────────────────────────────
+def get_sharepoint_context():
+    """Get authenticated SharePoint context"""
+    user_credentials = UserCredential(USERNAME, PASSWORD)
+    ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
+    return ctx
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_credentials_from_sharepoint():
-    """Load credentials sheet from SharePoint Excel file"""
+def load_credentials_from_lists():
+    """Load credentials from SharePoint List (much faster than Excel)"""
     try:
-        st.info("🔄 Conectando a SharePoint...")
+        st.info("🔄 Conectando a SharePoint Lists...")
         
-        # Authenticate
-        user_credentials = UserCredential(USERNAME, PASSWORD)
-        ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
+        ctx = get_sharepoint_context()
         
-        st.info("✅ Autenticación a SharePoint exitosa")
-        
-        # Get file
-        file = ctx.web.get_file_by_id(FILE_ID)
-        ctx.load(file)
+        # Get ProveedorCredenciales list
+        credentials_list = ctx.web.lists.get_by_title("ProveedorCredenciales")
+        credentials_items = credentials_list.items
+        ctx.load(credentials_items)
         ctx.execute_query()
         
-        st.info("📁 Archivo encontrado, descargando...")
+        st.info(f"✅ Lista de credenciales cargada: {len(credentials_items)} usuarios")
         
-        # Create a BytesIO object to store the file content
-        file_content = io.BytesIO()
+        # Convert to DataFrame
+        credentials_data = []
+        for item in credentials_items:
+            credentials_data.append({
+                'ID': item.id,
+                'usuario': item.get_property('usuario'),
+                'password': item.get_property('password')
+            })
         
-        # Try multiple download methods based on library version
-        try:
-            # Method 1: Newer API version
-            file.download(file_content)
-            ctx.execute_query()
-            st.info("✅ Método de descarga 1 exitoso")
-        except TypeError as e:
-            st.warning(f"⚠️ Método 1 falló: {e}")
-            try:
-                # Method 2: Alternative for different versions
-                response = file.download()
-                ctx.execute_query()
-                file_content = io.BytesIO(response.content)
-                st.info("✅ Método de descarga 2 exitoso")
-            except Exception as e2:
-                st.error(f"❌ Método 2 falló: {e2}")
-                try:
-                    # Method 3: Using download_session
-                    file.download_session(file_content)
-                    ctx.execute_query()
-                    st.info("✅ Método de descarga 3 exitoso")
-                except Exception as e3:
-                    st.error(f"❌ Método 3 falló: {e3}")
-                    raise e3
+        credentials_df = pd.DataFrame(credentials_data)
         
-        # Reset pointer to beginning
-        file_content.seek(0)
-        
-        st.info("📊 Procesando archivo Excel...")
-        
-        # Load credentials sheet
-        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial")
-        
-        st.success(f"✅ Credenciales cargadas: {len(credentials_df)} usuarios encontrados")
+        st.success(f"✅ Credenciales procesadas: {len(credentials_df)} usuarios encontrados")
         
         return credentials_df
         
     except Exception as e:
-        st.error(f"❌ Error al cargar credenciales de SharePoint: {str(e)}")
+        st.error(f"❌ Error al cargar credenciales de SharePoint Lists: {str(e)}")
         st.info("💡 Verifique que:")
-        st.info("   • FILE_ID sea correcto")
-        st.info("   • SITE_URL sea válida")
+        st.info("   • La lista 'ProveedorCredenciales' exista")
+        st.info("   • Las columnas 'usuario' y 'password' estén creadas")
         st.info("   • USERNAME y PASSWORD tengan permisos")
-        st.info("   • El archivo Excel tenga la hoja 'proveedor_credencial'")
         return None
+
+@st.cache_data(ttl=60)  # Cache for 1 minute (shorter for booking data)
+def load_reservations_from_lists():
+    """Load reservations from SharePoint List"""
+    try:
+        st.info("🔄 Cargando reservas...")
+        
+        ctx = get_sharepoint_context()
+        
+        # Get ProveedorReservas list
+        reservas_list = ctx.web.lists.get_by_title("ProveedorReservas")
+        reservas_items = reservas_list.items
+        ctx.load(reservas_items)
+        ctx.execute_query()
+        
+        st.info(f"✅ Reservas cargadas: {len(reservas_items)} registros")
+        
+        # Convert to DataFrame
+        reservas_data = []
+        for item in reservas_items:
+            reservas_data.append({
+                'ID': item.id,
+                'Fecha': item.get_property('Fecha'),
+                'Hora': item.get_property('Hora'),
+                'Proveedor': item.get_property('Proveedor'),
+                'Numero_de_bultos': item.get_property('Numero_de_bultos'),
+                'Orden_de_compra': item.get_property('Orden_de_compra')
+            })
+        
+        reservas_df = pd.DataFrame(reservas_data)
+        
+        return reservas_df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Error al cargar reservas: {str(e)}")
+        st.info("💡 La lista 'ProveedorReservas' puede estar vacía o no existir aún")
+        return pd.DataFrame()
+
+def save_booking_to_lists(new_booking):
+    """Save new booking to SharePoint List (much faster than Excel)"""
+    try:
+        ctx = get_sharepoint_context()
+        
+        # Get ProveedorReservas list
+        reservas_list = ctx.web.lists.get_by_title("ProveedorReservas")
+        
+        # Create new item
+        item_properties = {
+            'Fecha': new_booking['Fecha'],
+            'Hora': new_booking['Hora'],
+            'Proveedor': new_booking['Proveedor'],
+            'Numero_de_bultos': new_booking['Numero_de_bultos'],
+            'Orden_de_compra': new_booking['Orden_de_compra']
+        }
+        
+        new_item = reservas_list.add_item(item_properties)
+        ctx.execute_query()
+        
+        # Clear cache to refresh data
+        load_reservations_from_lists.clear()
+        
+        st.success("✅ Reserva guardada exitosamente en SharePoint List")
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Error al guardar reserva: {str(e)}")
+        return False
 
 # ─────────────────────────────────────────────────────────────
 # 3. Authentication Functions
 # ─────────────────────────────────────────────────────────────
 def authenticate_user(usuario, password):
-    """Authenticate user against SharePoint Excel data"""
-    credentials_df = load_credentials_from_sharepoint()
+    """Authenticate user against SharePoint List data"""
+    credentials_df = load_credentials_from_lists()
     
-    if credentials_df is None:
+    if credentials_df is None or credentials_df.empty:
         return False, None, "No se pudieron cargar las credenciales"
     
     # Debug: Show what columns we have
-    st.write("**Columnas encontradas en el archivo:**", list(credentials_df.columns))
+    st.write("**Columnas encontradas en la lista:**", list(credentials_df.columns))
     
     # Check if required columns exist
     if 'usuario' not in credentials_df.columns or 'password' not in credentials_df.columns:
@@ -125,10 +174,47 @@ def authenticate_user(usuario, password):
     return False, None, "Credenciales incorrectas"
 
 # ─────────────────────────────────────────────────────────────
-# 4. Main Application
+# 4. Test Functions
+# ─────────────────────────────────────────────────────────────
+def test_lists_setup():
+    """Test if SharePoint Lists are properly configured"""
+    try:
+        ctx = get_sharepoint_context()
+        
+        # Test both lists exist
+        st.info("🧪 Verificando listas de SharePoint...")
+        
+        # Check ProveedorCredenciales
+        try:
+            credentials_list = ctx.web.lists.get_by_title("ProveedorCredenciales")
+            ctx.load(credentials_list)
+            ctx.execute_query()
+            st.success("✅ Lista 'ProveedorCredenciales' encontrada")
+        except Exception as e:
+            st.error(f"❌ Lista 'ProveedorCredenciales' no encontrada: {e}")
+            return False
+        
+        # Check ProveedorReservas
+        try:
+            reservas_list = ctx.web.lists.get_by_title("ProveedorReservas")
+            ctx.load(reservas_list)
+            ctx.execute_query()
+            st.success("✅ Lista 'ProveedorReservas' encontrada")
+        except Exception as e:
+            st.error(f"❌ Lista 'ProveedorReservas' no encontrada: {e}")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Error general en la configuración: {e}")
+        return False
+
+# ─────────────────────────────────────────────────────────────
+# 5. Main Application
 # ─────────────────────────────────────────────────────────────
 def main():
-    st.title("🔐 Sistema de Autenticación - Proveedores")
+    st.title("🚀 Sistema de Autenticación - SharePoint Lists (Rápido)")
     st.markdown("---")
     
     # Initialize session state
@@ -137,24 +223,50 @@ def main():
     if 'supplier_name' not in st.session_state:
         st.session_state.supplier_name = None
     
-    # Show current configuration (without sensitive data)
+    # Show current configuration
     with st.expander("🔧 Configuración Actual"):
         st.write(f"**Site URL:** {SITE_URL}")
-        st.write(f"**File ID:** {FILE_ID}")
-        st.write(f"**File Name:** {FILE_NAME}")
+        st.write(f"**API Base URL:** {BASE_API_URL}")
         st.write(f"**SharePoint User:** {USERNAME}")
         st.write("**Password:** [HIDDEN]")
+    
+    # Performance info
+    st.info("⚡ **Nota:** Este sistema usa SharePoint Lists en lugar de Excel para mayor velocidad")
     
     # Authentication Section
     if not st.session_state.authenticated:
         st.subheader("🔐 Iniciar Sesión")
         
+        # Test setup button
+        if st.button("🧪 Verificar Configuración de Listas"):
+            with st.spinner("Verificando listas..."):
+                setup_ok = test_lists_setup()
+                if setup_ok:
+                    st.success("🎉 ¡Configuración de listas correcta!")
+                else:
+                    st.error("💥 Error en la configuración de listas")
+                    st.info("📋 **Pasos para crear las listas:**")
+                    st.code("""
+1. Ir a SharePoint → New → List
+2. Crear 'ProveedorCredenciales' con columnas:
+   - usuario (Single line of text)
+   - password (Single line of text)
+   
+3. Crear 'ProveedorReservas' con columnas:
+   - Fecha (Date)
+   - Hora (Single line of text)
+   - Proveedor (Single line of text)
+   - Numero_de_bultos (Number)
+   - Orden_de_compra (Single line of text)
+                    """)
+        
         # Test connection button
-        if st.button("🧪 Probar Conexión a SharePoint"):
-            with st.spinner("Probando conexión..."):
-                credentials_df = load_credentials_from_sharepoint()
+        if st.button("🔄 Probar Conexión Rápida"):
+            with st.spinner("Probando conexión a listas..."):
+                credentials_df = load_credentials_from_lists()
                 if credentials_df is not None:
-                    st.success("🎉 ¡Conexión exitosa!")
+                    st.success("🚀 ¡Conexión rápida exitosa!")
+                    st.metric("Tiempo estimado", "~1 segundo", "vs ~5-10 seg con Excel")
                 else:
                     st.error("💥 Error en la conexión")
         
@@ -174,30 +286,4 @@ def main():
                     with st.spinner("Verificando credenciales..."):
                         is_valid, supplier_name, message = authenticate_user(usuario, password)
                     
-                    if is_valid:
-                        st.session_state.authenticated = True
-                        st.session_state.supplier_name = supplier_name
-                        st.success(f"✅ {message}")
-                        st.balloons()
-                        st.rerun()
-                    else:
-                        st.error(f"❌ {message}")
-                else:
-                    st.warning("⚠️ Por favor complete todos los campos")
-    
-    # Authenticated Section
-    else:
-        st.success(f"🎉 ¡Bienvenido, {st.session_state.supplier_name}!")
-        
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.button("🚪 Cerrar Sesión"):
-                st.session_state.authenticated = False
-                st.session_state.supplier_name = None
-                st.rerun()
-        
-        st.markdown("---")
-        st.info("🚧 Aquí irá el sistema de reservas...")
-
-if __name__ == "__main__":
-    main()
+                    if is
