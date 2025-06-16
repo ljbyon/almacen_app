@@ -56,7 +56,7 @@ def fetch_sheet():
     st.success(f"✅ Downloaded {buf.tell():,} bytes")
     
     buf.seek(0)
-    df = pd.read_excel(buf, sheet_name=SHEET_NAME, header=1, engine="openpyxl")
+    df = pd.read_excel(buf, sheet_name=SHEET_NAME, header=0, engine="openpyxl")
     return df
 
 # ─────────────────────────────────────────────────────────────
