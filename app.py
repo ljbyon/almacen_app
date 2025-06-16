@@ -128,6 +128,8 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
     """Send booking confirmation email"""
     try:
         # Email content
+        cc_emails = ["leonardo.byon@gmail.com"]
+
         subject = "Confirmación de Reserva de Entrega"
         
         body = f"""
@@ -147,6 +149,8 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         • Llegue puntualmente en el horario reservado, caso contrario, podria tener que esperar hasta que el próximo cupo disponible
         • Tenga lista la orden de compra y cualquier otra documentación relevante
         • Asegúrese de que el producto y el número de bultos coincidan con la orden de compra
+        • Si desea modificar o cancelar la reserva, favor de contactarse directamente con Almacen al 000-0000
+       
         
         Gracias por utilizar nuestro sistema de reservas.
         
@@ -158,6 +162,7 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = supplier_email
+        msg['Cc'] = ', '.join(cc_emails)
         msg['Subject'] = subject
         
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
