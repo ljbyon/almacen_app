@@ -89,24 +89,12 @@ def save_booking_to_excel(new_booking):
         
         excel_buffer.seek(0)
         
-        # Upload back to SharePoint using file ID
+        # Get the file and try to upload
         file = ctx.web.get_file_by_id(FILE_ID)
         
-        # Try different upload methods
-        try:
-            # Method 1: Direct upload
-            file.upload(excel_buffer.getvalue())
-            ctx.execute_query()
-        except Exception as e1:
-            try:
-                # Method 2: Upload with content stream
-                excel_buffer.seek(0)
-                file.upload(excel_buffer)
-                ctx.execute_query()
-            except Exception as e2:
-                # Method 3: Use saveBinary with content only
-                file.saveBinary(excel_buffer.getvalue())
-                ctx.execute_query()
+        # Simple upload method
+        file.upload(excel_buffer.getvalue())
+        ctx.execute_query()
         
         # Clear cache
         download_excel_to_memory.clear()
