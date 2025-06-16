@@ -279,17 +279,13 @@ def main():
             st.warning("❌ No hay horarios para esta fecha")
             return
         
-        # Display slots by hour (2 per row)
+        # Display slots (2 per row)
         selected_slot = None
         
-        # Group slots by hour
-        current_hour = 9
         for i in range(0, len(all_slots), 2):
-            st.write(f"**{current_hour}:00 - {current_hour + 1}:00**")
-            
             col1, col2 = st.columns(2)
             
-            # First slot of the hour
+            # First slot
             slot1 = all_slots[i]
             is_booked1 = slot1 in booked_slots
             
@@ -300,7 +296,7 @@ def main():
                     if st.button(f"✅ {slot1}", key=f"slot_{i}", use_container_width=True):
                         selected_slot = slot1
             
-            # Second slot of the hour (if exists)
+            # Second slot (if exists)
             if i + 1 < len(all_slots):
                 slot2 = all_slots[i + 1]
                 is_booked2 = slot2 in booked_slots
@@ -311,8 +307,6 @@ def main():
                     else:
                         if st.button(f"✅ {slot2}", key=f"slot_{i+1}", use_container_width=True):
                             selected_slot = slot2
-            
-            current_hour += 1
         
         # Booking form
         if selected_slot or 'selected_slot' in st.session_state:
