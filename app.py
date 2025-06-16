@@ -9,7 +9,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-st.set_page_config(page_title="Dismac: Reserva de Entrega de Mercaderia", layout="wide")
+st.set_page_config(page_title="Dismac: Reserva de Entrega de Mercadería", layout="wide")
 
 # ─────────────────────────────────────────────────────────────
 # 1. Configuration
@@ -131,7 +131,7 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         cc_emails = ["leonardo.byon@gmail.com"]
         
         # Email content
-        subject = "Confirmación de Reserva para Entrega de Mercaderia"
+        subject = "Confirmación de Reserva para Entrega de Mercadería"
         
         body = f"""
         Hola {supplier_name},
@@ -280,7 +280,7 @@ def authenticate_user(usuario, password):
 # 4. Main App
 # ─────────────────────────────────────────────────────────────
 def main():
-    st.title("🚚 Sistema de Reserva de Entregas")
+    st.title("🚚 Dismac: Reserva de Entrega de Mercadería")
     
     # Download Excel when app starts
     with st.spinner("Cargando datos..."):
