@@ -66,8 +66,6 @@ def download_excel_to_memory():
 
 def save_booking_to_excel(new_booking):
     """Save new booking to Excel file"""
-    import time
-    
     try:
         # Load current data
         credentials_df, reservas_df = download_excel_to_memory()
@@ -98,35 +96,19 @@ def save_booking_to_excel(new_booking):
         server_relative_url = file.properties['ServerRelativeUrl']
         folder_url = server_relative_url.replace('/' + file_name, '')
         
-        # Try to upload with retries for locked file
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                # Get folder and try upload with overwrite
-                folder = ctx.web.get_folder_by_server_relative_url(folder_url)
-                excel_buffer.seek(0)
-                
-                # Force overwrite the locked file
-                uploaded_file = folder.files.add(file_name, excel_buffer.getvalue(), True)
-                ctx.execute_query()
-                
-                # Clear cache
-                download_excel_to_memory.clear()
-                return True
-                
-            except Exception as e:
-                if "locked" in str(e).lower() and attempt < max_retries - 1:
-                    st.warning(f"Archivo bloqueado, reintentando... ({attempt + 1}/{max_retries})")
-                    time.sleep(2)  # Wait 2 seconds before retry
-                    continue
-                else:
-                    raise e
+        # Upload the updated file
+        folder = ctx.web.get_folder_by_server_relative_url(folder_url)
+        excel_buffer.seek(0)
+        folder.files.add(file_name, excel_buffer.getvalue(), True)
+        ctx.execute_query()
         
-        return False
+        # Clear cache
+        download_excel_to_memory.clear()
+        
+        return True
         
     except Exception as e:
         st.error(f"Error guardando reserva: {str(e)}")
-        st.info("💡 El archivo puede estar abierto en Excel. Ciérrelo e intente nuevamente.")
         return False
 
 # ─────────────────────────────────────────────────────────────
@@ -281,20 +263,56 @@ def main():
         # Time slot selection
         st.subheader("🕐 Horarios Disponibles")
         
-        available_slots = get_available_slots(selected_date, reservas_df)
+        # Generate all slots and check availability
+        weekday_slots, saturday_slots = generate_time_slots()
         
-        if not available_slots:
-            st.warning("❌ No hay horarios disponibles para esta fecha")
+        if selected_date.weekday() == 5:  # Saturday
+            all_slots = saturday_slots
+        else:  # Monday-Friday
+            all_slots = weekday_slots
+        
+        # Get booked slots for this date
+        date_str = selected_date.strftime('%Y-%m-%d')
+        booked_slots = reservas_df[reservas_df['Fecha'] == date_str]['Hora'].tolist()
+        
+        if not all_slots:
+            st.warning("❌ No hay horarios para esta fecha")
             return
         
-        # Display slots in columns
-        cols = st.columns(3)
+        # Display slots by hour (2 per row)
         selected_slot = None
         
-        for i, slot in enumerate(available_slots):
-            with cols[i % 3]:
-                if st.button(slot, key=f"slot_{i}"):
-                    selected_slot = slot
+        # Group slots by hour
+        current_hour = 9
+        for i in range(0, len(all_slots), 2):
+            st.write(f"**{current_hour}:00 - {current_hour + 1}:00**")
+            
+            col1, col2 = st.columns(2)
+            
+            # First slot of the hour
+            slot1 = all_slots[i]
+            is_booked1 = slot1 in booked_slots
+            
+            with col1:
+                if is_booked1:
+                    st.button(f"🚫 {slot1} (Ocupado)", disabled=True, key=f"slot_{i}", use_container_width=True)
+                else:
+                    if st.button(f"✅ {slot1}", key=f"slot_{i}", use_container_width=True):
+                        selected_slot = slot1
+            
+            # Second slot of the hour (if exists)
+            if i + 1 < len(all_slots):
+                slot2 = all_slots[i + 1]
+                is_booked2 = slot2 in booked_slots
+                
+                with col2:
+                    if is_booked2:
+                        st.button(f"🚫 {slot2} (Ocupado)", disabled=True, key=f"slot_{i+1}", use_container_width=True)
+                    else:
+                        if st.button(f"✅ {slot2}", key=f"slot_{i+1}", use_container_width=True):
+                            selected_slot = slot2
+            
+            current_hour += 1
         
         # Booking form
         if selected_slot or 'selected_slot' in st.session_state:
