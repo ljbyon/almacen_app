@@ -2,12 +2,10 @@ import io
 import os
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta, time
 from office365.sharepoint.client_context import ClientContext
 from office365.runtime.auth.user_credential import UserCredential
-import calendar
 
-st.set_page_config(page_title="Reserva de Entregas - Proveedores", layout="wide")
+st.set_page_config(page_title="Sistema de Autenticación", layout="wide")
 
 # ─────────────────────────────────────────────────────────────
 # 1. Secrets / env-vars
@@ -26,161 +24,111 @@ except KeyError as e:
 # 2. SharePoint Functions
 # ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_excel_from_sharepoint():
-    """Load Excel file from SharePoint and return both sheets as DataFrames"""
+def load_credentials_from_sharepoint():
+    """Load credentials sheet from SharePoint Excel file"""
     try:
+        st.info("🔄 Conectando a SharePoint...")
+        
         # Authenticate
         user_credentials = UserCredential(USERNAME, PASSWORD)
         ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
+        
+        st.info("✅ Autenticación a SharePoint exitosa")
         
         # Get file
         file = ctx.web.get_file_by_id(FILE_ID)
         ctx.load(file)
         ctx.execute_query()
         
-        # Download file content
-        response = file.download()
-        ctx.execute_query()
+        st.info("📁 Archivo encontrado, descargando...")
         
-        # Read Excel file
-        excel_data = io.BytesIO(response.content)
+        # Create a BytesIO object to store the file content
+        file_content = io.BytesIO()
         
-        # Load both sheets
-        credentials_df = pd.read_excel(excel_data, sheet_name="proveedor_credencial")
-        reservas_df = pd.read_excel(excel_data, sheet_name="proveedor_reservas")
+        # Try multiple download methods based on library version
+        try:
+            # Method 1: Newer API version
+            file.download(file_content)
+            ctx.execute_query()
+            st.info("✅ Método de descarga 1 exitoso")
+        except TypeError as e:
+            st.warning(f"⚠️ Método 1 falló: {e}")
+            try:
+                # Method 2: Alternative for different versions
+                response = file.download()
+                ctx.execute_query()
+                file_content = io.BytesIO(response.content)
+                st.info("✅ Método de descarga 2 exitoso")
+            except Exception as e2:
+                st.error(f"❌ Método 2 falló: {e2}")
+                try:
+                    # Method 3: Using download_session
+                    file.download_session(file_content)
+                    ctx.execute_query()
+                    st.info("✅ Método de descarga 3 exitoso")
+                except Exception as e3:
+                    st.error(f"❌ Método 3 falló: {e3}")
+                    raise e3
         
-        return credentials_df, reservas_df
+        # Reset pointer to beginning
+        file_content.seek(0)
+        
+        st.info("📊 Procesando archivo Excel...")
+        
+        # Load credentials sheet
+        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial")
+        
+        st.success(f"✅ Credenciales cargadas: {len(credentials_df)} usuarios encontrados")
+        
+        return credentials_df
+        
     except Exception as e:
-        st.error(f"Error al cargar datos de SharePoint: {str(e)}")
-        return None, None
-
-def save_booking_to_sharepoint(new_booking):
-    """Save new booking to SharePoint Excel file"""
-    try:
-        # Load current data
-        credentials_df, reservas_df = load_excel_from_sharepoint()
-        
-        if reservas_df is None:
-            return False
-        
-        # Add new booking
-        new_row = pd.DataFrame([new_booking])
-        updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
-        
-        # Authenticate
-        user_credentials = UserCredential(USERNAME, PASSWORD)
-        ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
-        
-        # Create Excel file in memory
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
-            updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
-        
-        excel_buffer.seek(0)
-        
-        # Upload file back to SharePoint
-        file = ctx.web.get_file_by_id(FILE_ID)
-        file.save_binary(excel_buffer.getvalue())
-        ctx.execute_query()
-        
-        # Clear cache to refresh data
-        load_excel_from_sharepoint.clear()
-        
-        return True
-    except Exception as e:
-        st.error(f"Error al guardar reserva: {str(e)}")
-        return False
+        st.error(f"❌ Error al cargar credenciales de SharePoint: {str(e)}")
+        st.info("💡 Verifique que:")
+        st.info("   • FILE_ID sea correcto")
+        st.info("   • SITE_URL sea válida")
+        st.info("   • USERNAME y PASSWORD tengan permisos")
+        st.info("   • El archivo Excel tenga la hoja 'proveedor_credencial'")
+        return None
 
 # ─────────────────────────────────────────────────────────────
 # 3. Authentication Functions
 # ─────────────────────────────────────────────────────────────
 def authenticate_user(usuario, password):
     """Authenticate user against SharePoint Excel data"""
-    credentials_df, _ = load_excel_from_sharepoint()
+    credentials_df = load_credentials_from_sharepoint()
     
     if credentials_df is None:
-        return False, None
+        return False, None, "No se pudieron cargar las credenciales"
+    
+    # Debug: Show what columns we have
+    st.write("**Columnas encontradas en el archivo:**", list(credentials_df.columns))
+    
+    # Check if required columns exist
+    if 'usuario' not in credentials_df.columns or 'password' not in credentials_df.columns:
+        return False, None, f"Columnas requeridas no encontradas. Columnas disponibles: {list(credentials_df.columns)}"
+    
+    # Show sample data (without passwords)
+    st.write("**Usuarios disponibles:**")
+    sample_df = credentials_df[['usuario']].copy()
+    st.dataframe(sample_df)
     
     # Check credentials
     user_match = credentials_df[
-        (credentials_df['usuario'] == usuario) & 
-        (credentials_df['password'] == password)
+        (credentials_df['usuario'].astype(str).str.strip() == str(usuario).strip()) & 
+        (credentials_df['password'].astype(str).str.strip() == str(password).strip())
     ]
     
     if not user_match.empty:
-        return True, usuario
+        return True, usuario, "Autenticación exitosa"
     
-    return False, None
+    return False, None, "Credenciales incorrectas"
 
 # ─────────────────────────────────────────────────────────────
-# 4. Time Slot Functions
-# ─────────────────────────────────────────────────────────────
-def generate_time_slots():
-    """Generate available time slots based on business hours"""
-    slots = []
-    
-    # Monday to Friday: 9:00 AM to 4:00 PM (last slot 3:30-4:00)
-    weekday_start = time(9, 0)
-    weekday_end = time(16, 0)
-    
-    # Saturday: 9:00 AM to 12:00 PM (last slot 11:30-12:00)
-    saturday_start = time(9, 0)
-    saturday_end = time(12, 0)
-    
-    # Generate 30-minute slots
-    current_time = datetime.combine(datetime.today(), weekday_start)
-    end_time = datetime.combine(datetime.today(), weekday_end)
-    
-    weekday_slots = []
-    while current_time.time() < weekday_end:
-        next_time = current_time + timedelta(minutes=30)
-        slot_str = f"{current_time.strftime('%H:%M')}-{next_time.strftime('%H:%M')}"
-        weekday_slots.append(slot_str)
-        current_time = next_time
-    
-    # Generate Saturday slots
-    current_time = datetime.combine(datetime.today(), saturday_start)
-    end_time = datetime.combine(datetime.today(), saturday_end)
-    
-    saturday_slots = []
-    while current_time.time() < saturday_end:
-        next_time = current_time + timedelta(minutes=30)
-        slot_str = f"{current_time.strftime('%H:%M')}-{next_time.strftime('%H:%M')}"
-        saturday_slots.append(slot_str)
-        current_time = next_time
-    
-    return weekday_slots, saturday_slots
-
-def get_available_slots(date_selected, reservas_df):
-    """Get available time slots for a specific date"""
-    weekday_slots, saturday_slots = generate_time_slots()
-    
-    # Determine which slots to use based on day of week
-    if date_selected.weekday() < 5:  # Monday to Friday (0-4)
-        all_slots = weekday_slots
-    elif date_selected.weekday() == 5:  # Saturday (5)
-        all_slots = saturday_slots
-    else:  # Sunday (6)
-        return []  # No work on Sundays
-    
-    # Filter out already booked slots
-    if reservas_df is not None and not reservas_df.empty:
-        booked_slots = reservas_df[
-            reservas_df['Fecha'] == date_selected.strftime('%Y-%m-%d')
-        ]['Hora'].tolist()
-        
-        available_slots = [slot for slot in all_slots if slot not in booked_slots]
-    else:
-        available_slots = all_slots
-    
-    return available_slots
-
-# ─────────────────────────────────────────────────────────────
-# 5. Main Application
+# 4. Main Application
 # ─────────────────────────────────────────────────────────────
 def main():
-    st.title("🚚 Sistema de Reserva de Entregas")
+    st.title("🔐 Sistema de Autenticación - Proveedores")
     st.markdown("---")
     
     # Initialize session state
@@ -189,9 +137,28 @@ def main():
     if 'supplier_name' not in st.session_state:
         st.session_state.supplier_name = None
     
+    # Show current configuration (without sensitive data)
+    with st.expander("🔧 Configuración Actual"):
+        st.write(f"**Site URL:** {SITE_URL}")
+        st.write(f"**File ID:** {FILE_ID}")
+        st.write(f"**File Name:** {FILE_NAME}")
+        st.write(f"**SharePoint User:** {USERNAME}")
+        st.write("**Password:** [HIDDEN]")
+    
     # Authentication Section
     if not st.session_state.authenticated:
-        st.subheader("🔐 Acceso para Proveedores")
+        st.subheader("🔐 Iniciar Sesión")
+        
+        # Test connection button
+        if st.button("🧪 Probar Conexión a SharePoint"):
+            with st.spinner("Probando conexión..."):
+                credentials_df = load_credentials_from_sharepoint()
+                if credentials_df is not None:
+                    st.success("🎉 ¡Conexión exitosa!")
+                else:
+                    st.error("💥 Error en la conexión")
+        
+        st.markdown("---")
         
         with st.form("login_form"):
             col1, col2 = st.columns(2)
@@ -205,159 +172,32 @@ def main():
             if submitted:
                 if usuario and password:
                     with st.spinner("Verificando credenciales..."):
-                        is_valid, supplier_name = authenticate_user(usuario, password)
+                        is_valid, supplier_name, message = authenticate_user(usuario, password)
                     
                     if is_valid:
                         st.session_state.authenticated = True
                         st.session_state.supplier_name = supplier_name
-                        st.success("✅ Acceso autorizado")
+                        st.success(f"✅ {message}")
+                        st.balloons()
                         st.rerun()
                     else:
-                        st.error("❌ Credenciales incorrectas")
+                        st.error(f"❌ {message}")
                 else:
                     st.warning("⚠️ Por favor complete todos los campos")
     
-    # Main Booking Interface
+    # Authenticated Section
     else:
-        # Header with logout option
+        st.success(f"🎉 ¡Bienvenido, {st.session_state.supplier_name}!")
+        
         col1, col2 = st.columns([3, 1])
-        with col1:
-            st.subheader(f"Bienvenido, {st.session_state.supplier_name}")
         with col2:
-            if st.button("Cerrar Sesión"):
+            if st.button("🚪 Cerrar Sesión"):
                 st.session_state.authenticated = False
                 st.session_state.supplier_name = None
                 st.rerun()
         
         st.markdown("---")
-        
-        # Load current reservations
-        with st.spinner("Cargando disponibilidad..."):
-            _, reservas_df = load_excel_from_sharepoint()
-        
-        if reservas_df is None:
-            st.error("No se pudo cargar la información de reservas")
-            return
-        
-        # Date Selection
-        st.subheader("📅 Seleccionar Fecha de Entrega")
-        
-        # Show next 30 days, excluding Sundays
-        today = datetime.now().date()
-        max_date = today + timedelta(days=30)
-        
-        date_selected = st.date_input(
-            "Fecha de entrega",
-            min_value=today,
-            max_value=max_date,
-            value=today
-        )
-        
-        # Check if selected date is Sunday
-        if date_selected.weekday() == 6:  # Sunday
-            st.warning("⚠️ No trabajamos los domingos. Por favor seleccione otro día.")
-            return
-        
-        # Time Slot Selection
-        st.subheader("🕐 Seleccionar Horario")
-        
-        available_slots = get_available_slots(date_selected, reservas_df)
-        
-        if not available_slots:
-            st.warning("❌ No hay horarios disponibles para esta fecha.")
-            return
-        
-        # Display available slots in a nice format
-        st.write(f"**Horarios disponibles para {date_selected.strftime('%A, %d de %B %Y')}:**")
-        
-        # Create columns for better layout
-        cols = st.columns(3)
-        selected_slot = None
-        
-        for i, slot in enumerate(available_slots):
-            col_idx = i % 3
-            with cols[col_idx]:
-                if st.button(slot, key=f"slot_{i}", use_container_width=True):
-                    selected_slot = slot
-        
-        # Booking Form
-        if selected_slot or 'selected_slot' in st.session_state:
-            if selected_slot:
-                st.session_state.selected_slot = selected_slot
-            
-            st.markdown("---")
-            st.subheader("📦 Información de la Entrega")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.info(f"**Fecha:** {date_selected.strftime('%d/%m/%Y')}")
-                st.info(f"**Horario:** {st.session_state.selected_slot}")
-            
-            with st.form("booking_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    numero_bultos = st.number_input(
-                        "Número de bultos/paquetes",
-                        min_value=1,
-                        max_value=1000,
-                        value=1,
-                        help="Cantidad de bultos o paquetes a entregar"
-                    )
-                with col2:
-                    orden_compra = st.text_input(
-                        "Orden de compra",
-                        placeholder="Ej: OC-2024-001",
-                        help="Número de orden de compra asociada"
-                    )
-                
-                submitted = st.form_submit_button("🎯 Confirmar Reserva", use_container_width=True)
-                
-                if submitted:
-                    if orden_compra.strip():
-                        new_booking = {
-                            'Fecha': date_selected.strftime('%Y-%m-%d'),
-                            'Hora': st.session_state.selected_slot,
-                            'Proveedor': st.session_state.supplier_name,
-                            'Numero_de_bultos': numero_bultos,
-                            'Orden_de_compra': orden_compra.strip()
-                        }
-                        
-                        with st.spinner("Guardando reserva..."):
-                            success = save_booking_to_sharepoint(new_booking)
-                        
-                        if success:
-                            st.success("✅ ¡Reserva confirmada exitosamente!")
-                            st.balloons()
-                            # Clear selected slot
-                            if 'selected_slot' in st.session_state:
-                                del st.session_state.selected_slot
-                            st.rerun()
-                        else:
-                            st.error("❌ Error al confirmar la reserva. Intente nuevamente.")
-                    else:
-                        st.warning("⚠️ Por favor ingrese el número de orden de compra")
-
-        # Show existing bookings for the supplier
-        if not reservas_df.empty:
-            supplier_bookings = reservas_df[
-                reservas_df['Proveedor'] == st.session_state.supplier_name
-            ].copy()
-            
-            if not supplier_bookings.empty:
-                st.markdown("---")
-                st.subheader("📋 Sus Reservas Actuales")
-                
-                # Sort by date and time
-                supplier_bookings['Fecha'] = pd.to_datetime(supplier_bookings['Fecha'])
-                supplier_bookings = supplier_bookings.sort_values(['Fecha', 'Hora'])
-                supplier_bookings['Fecha'] = supplier_bookings['Fecha'].dt.strftime('%d/%m/%Y')
-                
-                # Display in a nice table
-                st.dataframe(
-                    supplier_bookings[['Fecha', 'Hora', 'Numero_de_bultos', 'Orden_de_compra']],
-                    use_container_width=True,
-                    hide_index=True
-                )
+        st.info("🚧 Aquí irá el sistema de reservas...")
 
 if __name__ == "__main__":
     main()
