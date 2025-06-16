@@ -442,7 +442,7 @@ def main():
                                         new_booking
                                     )
                                 if email_sent:
-                                    st.success("📧 Email de confirmación enviado!")
+                                    st.success(f"📧 Email de confirmación enviado a: {st.session_state.supplier_email}")
                                 else:
                                     st.warning("⚠️ Reserva guardada pero error enviando email")
                             else:
