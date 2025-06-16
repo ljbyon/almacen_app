@@ -66,6 +66,8 @@ def download_excel_to_memory():
 
 def save_booking_to_excel(new_booking):
     """Save new booking to Excel file"""
+    import time
+    
     try:
         # Load current data
         credentials_df, reservas_df = download_excel_to_memory()
@@ -87,29 +89,44 @@ def save_booking_to_excel(new_booking):
             credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
             updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
         
-        # Get the file to find its path
+        # Get the file info
         file = ctx.web.get_file_by_id(FILE_ID)
         ctx.load(file)
         ctx.execute_query()
         
-        # Get file info
         file_name = file.properties['Name']
         server_relative_url = file.properties['ServerRelativeUrl']
         folder_url = server_relative_url.replace('/' + file_name, '')
         
-        # Get the folder and upload the updated file
-        folder = ctx.web.get_folder_by_server_relative_url(folder_url)
-        excel_buffer.seek(0)
-        folder.upload_file(file_name, excel_buffer.getvalue())
-        ctx.execute_query()
+        # Try to upload with retries for locked file
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Get folder and try upload with overwrite
+                folder = ctx.web.get_folder_by_server_relative_url(folder_url)
+                excel_buffer.seek(0)
+                
+                # Force overwrite the locked file
+                uploaded_file = folder.files.add(file_name, excel_buffer.getvalue(), True)
+                ctx.execute_query()
+                
+                # Clear cache
+                download_excel_to_memory.clear()
+                return True
+                
+            except Exception as e:
+                if "locked" in str(e).lower() and attempt < max_retries - 1:
+                    st.warning(f"Archivo bloqueado, reintentando... ({attempt + 1}/{max_retries})")
+                    time.sleep(2)  # Wait 2 seconds before retry
+                    continue
+                else:
+                    raise e
         
-        # Clear cache
-        download_excel_to_memory.clear()
-        
-        return True
+        return False
         
     except Exception as e:
         st.error(f"Error guardando reserva: {str(e)}")
+        st.info("💡 El archivo puede estar abierto en Excel. Ciérrelo e intente nuevamente.")
         return False
 
 # ─────────────────────────────────────────────────────────────
