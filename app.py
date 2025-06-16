@@ -9,7 +9,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-st.set_page_config(page_title="Sistema de Reserva de Entregas", layout="wide")
+st.set_page_config(page_title="Dismac: Reserva de Entrega de Mercaderia", layout="wide")
 
 # ─────────────────────────────────────────────────────────────
 # 1. Configuration
