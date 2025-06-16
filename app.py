@@ -71,7 +71,7 @@ if st.button("Load workbook", type="primary"):
         st.error(f"❌ Error: {e}")
         st.stop()
 
-    st.success(f"✅ Loaded **{len(df):,}** rows and **{len(df.columns)}** columns from sheet "{SHEET_NAME}"")
+    st.success(f"✅ Loaded **{len(df):,}** rows and **{len(df.columns)}** columns from sheet '{SHEET_NAME}'")
     
     # Display basic info about the dataframe
     col1, col2, col3 = st.columns(3)
