@@ -38,12 +38,58 @@ def load_credentials_from_list():
         ctx.load(credentials_items)
         ctx.execute_query()
         
-        # Convert to list of dictionaries
+        st.write(f"**Total items found:** {len(credentials_items)}")
+        
+        # Debug: Show what properties are available
+        if len(credentials_items) > 0:
+            first_item = credentials_items[0]
+            st.write("**Available properties in first item:**")
+            
+            # Try different ways to access properties
+            properties = first_item.properties
+            st.write("All properties:", properties)
+            
+            # Try specific property access methods
+            st.write("**Testing different access methods:**")
+            
+            # Method 1: Direct property access
+            try:
+                usuario1 = first_item.properties.get('usuario')
+                password1 = first_item.properties.get('password')
+                st.write(f"Method 1 - usuario: {usuario1}, password: {password1}")
+            except Exception as e:
+                st.write(f"Method 1 failed: {e}")
+            
+            # Method 2: Title and other common fields
+            try:
+                title = first_item.properties.get('Title')
+                st.write(f"Title field: {title}")
+            except Exception as e:
+                st.write(f"Title access failed: {e}")
+            
+            # Method 3: Try with different casing
+            try:
+                usuario2 = first_item.properties.get('Usuario')
+                password2 = first_item.properties.get('Password')
+                st.write(f"Method 3 - Usuario: {usuario2}, Password: {password2}")
+            except Exception as e:
+                st.write(f"Method 3 failed: {e}")
+        
+        # Convert to list of dictionaries with multiple attempts
         credentials_data = []
         for item in credentials_items:
+            # Try different property names and access methods
+            usuario = (item.properties.get('usuario') or 
+                      item.properties.get('Usuario') or 
+                      item.properties.get('Title'))
+            
+            password = (item.properties.get('password') or 
+                       item.properties.get('Password'))
+            
             credentials_data.append({
-                'usuario': item.get_property('usuario'),
-                'password': item.get_property('password')
+                'usuario': usuario,
+                'password': password,
+                'all_properties': dict(item.properties)  # For debugging
             })
         
         return credentials_data
