@@ -1,12 +1,22 @@
 {
   "name": "Python 3.12 + Streamlit",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12",
-  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+  "image": "python:3.12-slim",
+  "postCreateCommand": [
+    "pip install --upgrade pip",
+    "pip install streamlit pandas numpy"
+  ],
   "forwardPorts": [8501],
   "portsAttributes": {
     "8501": { 
       "label": "Streamlit app", 
       "onAutoForward": "openBrowser" 
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3.12"
+      }
     }
   }
 }
