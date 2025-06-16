@@ -87,13 +87,18 @@ def save_booking_to_excel(new_booking):
             credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
             updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
         
-        excel_buffer.seek(0)
-        
-        # Get the file and try to upload
+        # Get the file to find its path and name
         file = ctx.web.get_file_by_id(FILE_ID)
+        ctx.load(file)
+        ctx.execute_query()
         
-        # Simple upload method
-        file.upload(excel_buffer.getvalue())
+        # Get file name and folder
+        file_name = file.properties['Name']
+        server_relative_url = file.properties['ServerRelativeUrl']
+        
+        # Upload using save_binary_direct
+        excel_buffer.seek(0)
+        file.save_binary_direct(excel_buffer.getvalue())
         ctx.execute_query()
         
         # Clear cache
