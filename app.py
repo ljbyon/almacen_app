@@ -241,6 +241,9 @@ def authenticate_user(usuario, password):
     if credentials_df is None:
         return False, "Error al cargar credenciales", None
     
+    # Debug: Show available columns
+    st.write("**Columnas disponibles:**", list(credentials_df.columns))
+    
     # Check credentials
     user_match = credentials_df[
         (credentials_df['usuario'].astype(str).str.strip() == str(usuario).strip()) & 
@@ -248,7 +251,18 @@ def authenticate_user(usuario, password):
     ]
     
     if not user_match.empty:
-        email = user_match.iloc[0]['Email'] if 'Email' in user_match.columns else None
+        # Try to get email if column exists
+        email = None
+        try:
+            if 'Email' in credentials_df.columns:
+                email = user_match.iloc[0]['Email']
+            elif 'email' in credentials_df.columns:
+                email = user_match.iloc[0]['email']
+            else:
+                st.warning("⚠️ Columna 'Email' no encontrada en el archivo")
+        except Exception as e:
+            st.warning(f"⚠️ Error accediendo al email: {e}")
+        
         return True, "Autenticación exitosa", email
     
     return False, "Credenciales incorrectas", None
