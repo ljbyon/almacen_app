@@ -290,7 +290,7 @@ def main():
         st.error("❌ Error al cargar archivo")
         return
     
-    st.success(f"✅ Datos cargados: {len(credentials_df)} usuarios, {len(reservas_df)} reservas")
+    #st.success(f"✅ Datos cargados: {len(credentials_df)} usuarios, {len(reservas_df)} reservas")
     
     # Session state
     if 'authenticated' not in st.session_state:
@@ -410,7 +410,6 @@ def main():
             
             st.markdown("---")
             st.subheader("📦 Información de Entrega")
-            st.caption("* Campos obligatorios")
             
             with st.form("booking_form"):
                 # Date and time info (full width)
