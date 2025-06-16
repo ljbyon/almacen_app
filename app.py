@@ -65,7 +65,7 @@ def download_excel_to_memory():
         file_content.seek(0)
         
         # Load both sheets
-        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial")
+        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial", dtype=str)
         reservas_df = pd.read_excel(file_content, sheet_name="proveedor_reservas")
         
         return credentials_df, reservas_df
@@ -241,53 +241,34 @@ def authenticate_user(usuario, password):
     if credentials_df is None:
         return False, "Error al cargar credenciales", None
     
-    # Debug: Show available columns and sample data
-    st.write("**Columnas disponibles:**", list(credentials_df.columns))
-    st.write("**Usuarios disponibles:**")
-    st.dataframe(credentials_df[['usuario', 'Email']])
-    
-    # Debug: Show what user is entering
-    st.write(f"**Intentando autenticar:** usuario='{usuario}', password='{len(password)} caracteres'")
-    
-    # Clean and compare
-    df_usuarios = credentials_df['usuario'].astype(str).str.strip()
-    df_passwords = credentials_df['password'].astype(str).str.strip()
+    # Clean and compare (all data is already strings)
+    df_usuarios = credentials_df['usuario'].str.strip()
     
     input_usuario = str(usuario).strip()
     input_password = str(password).strip()
     
-    # Debug: Show exact values
-    st.write("**Usuarios en archivo:**", df_usuarios.tolist())
-    st.write("**Usuario ingresado:**", f"'{input_usuario}'")
-    
-    # Debug: Show passwords for the specific user
+    # Find user row
     user_row = credentials_df[df_usuarios == input_usuario]
-    if not user_row.empty:
-        stored_password = str(user_row.iloc[0]['password']).strip()
-        st.write(f"**Password en archivo para {input_usuario}:** '{stored_password}' ({len(stored_password)} caracteres)")
-        st.write(f"**Password ingresado:** '{input_password}' ({len(input_password)} caracteres)")
-        st.write(f"**¿Passwords iguales?:** {stored_password == input_password}")
+    if user_row.empty:
+        return False, "Usuario no encontrado", None
     
-    # Check credentials
-    user_match = credentials_df[
-        (df_usuarios == input_usuario) & 
-        (df_passwords == input_password)
-    ]
+    # Get stored password and clean it
+    stored_password = str(user_row.iloc[0]['password']).strip()
     
-    st.write(f"**Coincidencias encontradas:** {len(user_match)}")
-    
-    if not user_match.empty:
+    # Compare passwords
+    if stored_password == input_password:
         # Get email
         email = None
         try:
-            email = user_match.iloc[0]['Email']
-            st.write(f"**Email encontrado:** {email}")
-        except Exception as e:
-            st.warning(f"⚠️ Error accediendo al email: {e}")
+            email = user_row.iloc[0]['Email']
+            if str(email) == 'nan' or email is None:
+                email = None
+        except:
+            email = None
         
         return True, "Autenticación exitosa", email
     
-    return False, "Credenciales incorrectas", None
+    return False, "Contraseña incorrecta", None
 
 # ─────────────────────────────────────────────────────────────
 # 4. Main App
