@@ -5,9 +5,6 @@ import pandas as pd
 from datetime import datetime, timedelta, time
 from office365.sharepoint.client_context import ClientContext
 from office365.runtime.auth.user_credential import UserCredential
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 st.set_page_config(page_title="Sistema de Reserva de Entregas", layout="wide")
 
@@ -19,13 +16,6 @@ try:
     FILE_ID = os.getenv("SP_FILE_ID") or st.secrets["SP_FILE_ID"]
     USERNAME = os.getenv("SP_USERNAME") or st.secrets["SP_USERNAME"]
     PASSWORD = os.getenv("SP_PASSWORD") or st.secrets["SP_PASSWORD"]
-    
-    # Email configuration
-    EMAIL_HOST = os.getenv("EMAIL_HOST") or st.secrets["EMAIL_HOST"]
-    EMAIL_PORT = int(os.getenv("EMAIL_PORT") or st.secrets["EMAIL_PORT"])
-    EMAIL_USER = os.getenv("EMAIL_USER") or st.secrets["EMAIL_USER"]
-    EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD") or st.secrets["EMAIL_PASSWORD"]
-    
 except KeyError as e:
     st.error(f"🔒 Falta configuración: {e}")
     st.stop()
@@ -65,7 +55,7 @@ def download_excel_to_memory():
         file_content.seek(0)
         
         # Load both sheets
-        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial", dtype=str)
+        credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial")
         reservas_df = pd.read_excel(file_content, sheet_name="proveedor_reservas")
         
         return credentials_df, reservas_df
@@ -122,64 +112,7 @@ def save_booking_to_excel(new_booking):
         return False
 
 # ─────────────────────────────────────────────────────────────
-# 3. Email Functions
-# ─────────────────────────────────────────────────────────────
-def send_booking_email(supplier_email, supplier_name, booking_details):
-    """Send booking confirmation email"""
-    try:
-        # Email content
-        subject = "Confirmación de Reserva de Entrega"
-        
-        body = f"""
-        Estimado/a {supplier_name},
-        
-        Su reserva de entrega ha sido confirmada exitosamente.
-        
-        DETALLES DE LA RESERVA:
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        📅 Fecha: {booking_details['Fecha']}
-        🕐 Horario: {booking_details['Hora']}
-        📦 Número de bultos: {booking_details['Numero_de_bultos']}
-        📋 Orden de compra: {booking_details['Orden_de_compra']}
-        👤 Proveedor: {booking_details['Proveedor']}
-        
-        INSTRUCCIONES:
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        • Llegue puntualmente en el horario reservado
-        • Tenga lista la documentación de la orden de compra
-        • Asegúrese de que los bultos estén correctamente etiquetados
-        
-        Gracias por utilizar nuestro sistema de reservas.
-        
-        Saludos cordiales,
-        Equipo de Almacén
-        """
-        
-        # Create message
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_USER
-        msg['To'] = supplier_email
-        msg['Subject'] = subject
-        
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
-        
-        # Send email
-        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASSWORD)
-        
-        text = msg.as_string()
-        server.sendmail(EMAIL_USER, supplier_email, text)
-        server.quit()
-        
-        return True
-        
-    except Exception as e:
-        st.error(f"Error enviando email: {str(e)}")
-        return False
-
-# ─────────────────────────────────────────────────────────────
-# 4. Time Slot Functions
+# 3. Time Slot Functions
 # ─────────────────────────────────────────────────────────────
 def generate_time_slots():
     """Generate available time slots"""
@@ -232,43 +165,25 @@ def get_available_slots(selected_date, reservas_df):
     return [slot for slot in all_slots if slot not in booked_slots]
 
 # ─────────────────────────────────────────────────────────────
-# 5. Authentication Function
+# 4. Authentication Function
 # ─────────────────────────────────────────────────────────────
 def authenticate_user(usuario, password):
-    """Authenticate user against Excel data and get email"""
+    """Authenticate user against Excel data"""
     credentials_df, _ = download_excel_to_memory()
     
     if credentials_df is None:
-        return False, "Error al cargar credenciales", None
+        return False, "Error al cargar credenciales"
     
-    # Clean and compare (all data is already strings)
-    df_usuarios = credentials_df['usuario'].str.strip()
+    # Check credentials
+    user_match = credentials_df[
+        (credentials_df['usuario'].astype(str).str.strip() == str(usuario).strip()) & 
+        (credentials_df['password'].astype(str).str.strip() == str(password).strip())
+    ]
     
-    input_usuario = str(usuario).strip()
-    input_password = str(password).strip()
+    if not user_match.empty:
+        return True, "Autenticación exitosa"
     
-    # Find user row
-    user_row = credentials_df[df_usuarios == input_usuario]
-    if user_row.empty:
-        return False, "Usuario no encontrado", None
-    
-    # Get stored password and clean it
-    stored_password = str(user_row.iloc[0]['password']).strip()
-    
-    # Compare passwords
-    if stored_password == input_password:
-        # Get email
-        email = None
-        try:
-            email = user_row.iloc[0]['Email']
-            if str(email) == 'nan' or email is None:
-                email = None
-        except:
-            email = None
-        
-        return True, "Autenticación exitosa", email
-    
-    return False, "Contraseña incorrecta", None
+    return False, "Credenciales incorrectas"
 
 # ─────────────────────────────────────────────────────────────
 # 4. Main App
@@ -291,8 +206,6 @@ def main():
         st.session_state.authenticated = False
     if 'supplier_name' not in st.session_state:
         st.session_state.supplier_name = None
-    if 'supplier_email' not in st.session_state:
-        st.session_state.supplier_email = None
     
     # Authentication
     if not st.session_state.authenticated:
@@ -305,12 +218,11 @@ def main():
             
             if submitted:
                 if usuario and password:
-                    is_valid, message, email = authenticate_user(usuario, password)
+                    is_valid, message = authenticate_user(usuario, password)
                     
                     if is_valid:
                         st.session_state.authenticated = True
                         st.session_state.supplier_name = usuario
-                        st.session_state.supplier_email = email
                         st.success(message)
                         st.rerun()
                     else:
@@ -327,7 +239,6 @@ def main():
             if st.button("Cerrar Sesión"):
                 st.session_state.authenticated = False
                 st.session_state.supplier_name = None
-                st.session_state.supplier_email = None
                 st.rerun()
         
         st.markdown("---")
@@ -432,35 +343,8 @@ def main():
                         
                         if success:
                             st.success("✅ Reserva confirmada!")
-                            
-                            # Send email if email is available
-                            if st.session_state.supplier_email:
-                                with st.spinner("Enviando confirmación por email..."):
-                                    email_sent = send_booking_email(
-                                        st.session_state.supplier_email,
-                                        st.session_state.supplier_name,
-                                        new_booking
-                                    )
-                                if email_sent:
-                                    st.success("📧 Email de confirmación enviado!")
-                                else:
-                                    st.warning("⚠️ Reserva guardada pero error enviando email")
-                            else:
-                                st.warning("⚠️ No se encontró email para enviar confirmación")
-                            
                             st.balloons()
-                            
-                            # Log off user and clear session
-                            st.info("Cerrando sesión automáticamente...")
-                            st.session_state.authenticated = False
-                            st.session_state.supplier_name = None
-                            st.session_state.supplier_email = None
-                            if 'selected_slot' in st.session_state:
-                                del st.session_state.selected_slot
-                            
-                            # Wait a moment then rerun
-                            import time
-                            time.sleep(2)
+                            del st.session_state.selected_slot
                             st.rerun()
                         else:
                             st.error("❌ Error al guardar reserva")
