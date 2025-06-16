@@ -260,6 +260,14 @@ def authenticate_user(usuario, password):
     st.write("**Usuarios en archivo:**", df_usuarios.tolist())
     st.write("**Usuario ingresado:**", f"'{input_usuario}'")
     
+    # Debug: Show passwords for the specific user
+    user_row = credentials_df[df_usuarios == input_usuario]
+    if not user_row.empty:
+        stored_password = str(user_row.iloc[0]['password']).strip()
+        st.write(f"**Password en archivo para {input_usuario}:** '{stored_password}' ({len(stored_password)} caracteres)")
+        st.write(f"**Password ingresado:** '{input_password}' ({len(input_password)} caracteres)")
+        st.write(f"**¿Passwords iguales?:** {stored_password == input_password}")
+    
     # Check credentials
     user_match = credentials_df[
         (df_usuarios == input_usuario) & 
