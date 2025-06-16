@@ -439,7 +439,7 @@ def main():
                             
                             # Send email if email is available
                             if st.session_state.supplier_email:
-                                with st.spinner("Enviando confirmación por email a: {st.session_state.supplier_email}"):
+                                with st.spinner(f"Enviando confirmación por email a: {st.session_state.supplier_email}"):
                                     email_sent = send_booking_email(
                                         st.session_state.supplier_email,
                                         st.session_state.supplier_name,
