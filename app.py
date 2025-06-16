@@ -128,13 +128,13 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
     """Send booking confirmation email"""
     try:
         # Default CC recipients
-        cc_emails = ["leonardo.byon@gmail.com", "abc@gmail.com", "cdef@gmail.com"]
+        cc_emails = ["leonardo.byon@gmail.com"]
         
         # Email content
-        subject = "Confirmación de Reserva de Entrega"
+        subject = "Confirmación de Reserva para Entrega de Mercaderia"
         
         body = f"""
-        Estimado/a {supplier_name},
+        Hola {supplier_name},
         
         Su reserva de entrega ha sido confirmada exitosamente.
         
@@ -144,18 +144,18 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         🕐 Horario: {booking_details['Hora']}
         📦 Número de bultos: {booking_details['Numero_de_bultos']}
         📋 Orden de compra: {booking_details['Orden_de_compra']}
-        👤 Proveedor: {booking_details['Proveedor']}
         
         INSTRUCCIONES:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         • Llegue puntualmente en el horario reservado
-        • Tenga lista la documentación de la orden de compra
-        • Asegúrese de que los bultos estén correctamente etiquetados
+        • Tenga lista el Orden de Compra y cualquier otra documentación relevante
+        • Asegúrese de que los productos y numero de bultos coincidan con el Orden de Compra
+        • Si llega tarde, posiblemente tendra que esperar hasta el proximo cupo disponible del dia
         
         Gracias por utilizar nuestro sistema de reservas.
         
         Saludos cordiales,
-        Equipo de Almacén
+        Equipo de Almacén Dismac
         """
         
         # Create message
