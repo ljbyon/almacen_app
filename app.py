@@ -127,13 +127,14 @@ def save_booking_to_excel(new_booking):
 def send_booking_email(supplier_email, supplier_name, booking_details):
     """Send booking confirmation email"""
     try:
+        # Default CC recipients
+        cc_emails = ["leonardo.byon@gmail.com", "abc@gmail.com", "cdef@gmail.com"]
+        
         # Email content
-        cc_emails = ["leonardo.byon@gmail.com"]
-
         subject = "Confirmación de Reserva de Entrega"
         
         body = f"""
-        Hola {supplier_name},
+        Estimado/a {supplier_name},
         
         Su reserva de entrega ha sido confirmada exitosamente.
         
@@ -143,19 +144,18 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         🕐 Horario: {booking_details['Hora']}
         📦 Número de bultos: {booking_details['Numero_de_bultos']}
         📋 Orden de compra: {booking_details['Orden_de_compra']}
+        👤 Proveedor: {booking_details['Proveedor']}
         
         INSTRUCCIONES:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        • Llegue puntualmente en el horario reservado, caso contrario, podria tener que esperar hasta que el próximo cupo disponible
-        • Tenga lista la orden de compra y cualquier otra documentación relevante
-        • Asegúrese de que el producto y el número de bultos coincidan con la orden de compra
-        • Si desea modificar o cancelar la reserva, favor de contactarse directamente con Almacen al 000-0000
-       
+        • Llegue puntualmente en el horario reservado
+        • Tenga lista la documentación de la orden de compra
+        • Asegúrese de que los bultos estén correctamente etiquetados
         
         Gracias por utilizar nuestro sistema de reservas.
         
         Saludos cordiales,
-        Equipo de Almacén Dismac
+        Equipo de Almacén
         """
         
         # Create message
@@ -172,8 +172,10 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASSWORD)
         
+        # Send to supplier + CC recipients
+        all_recipients = [supplier_email] + cc_emails
         text = msg.as_string()
-        server.sendmail(EMAIL_USER, supplier_email, text)
+        server.sendmail(EMAIL_USER, all_recipients, text)
         server.quit()
         
         return True
@@ -408,18 +410,29 @@ def main():
             
             st.markdown("---")
             st.subheader("📦 Información de Entrega")
+            st.caption("* Campos obligatorios")
             
             with st.form("booking_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.info(f"Fecha: {selected_date}")
-                    st.info(f"Horario: {st.session_state.selected_slot}")
+                # Date and time info (full width)
+                st.info(f"📅 Fecha: {selected_date}")
+                st.info(f"🕐 Horario: {st.session_state.selected_slot}")
                 
-                with col2:
-                    numero_bultos = st.number_input("Número de bultos", min_value=1, value=1)
-                    orden_compra = st.text_input("Orden de compra", placeholder="Ej: OC-2024-001")
+                # Number of bultos (full width)
+                numero_bultos = st.number_input(
+                    "📦 Número de bultos", 
+                    min_value=1, 
+                    value=1,
+                    help="Cantidad de bultos o paquetes a entregar"
+                )
                 
-                submitted = st.form_submit_button("Confirmar Reserva")
+                # Purchase order (full width, mandatory)
+                orden_compra = st.text_input(
+                    "📋 Orden de compra *", 
+                    placeholder="Ej: OC-2024-001",
+                    help="Campo obligatorio - Ingrese el número de orden de compra"
+                )
+                
+                submitted = st.form_submit_button("✅ Confirmar Reserva", use_container_width=True)
                 
                 if submitted:
                     if orden_compra.strip():
@@ -439,7 +452,7 @@ def main():
                             
                             # Send email if email is available
                             if st.session_state.supplier_email:
-                                with st.spinner(f"Enviando confirmación por email a: {st.session_state.supplier_email}"):
+                                with st.spinner("Enviando confirmación por email..."):
                                     email_sent = send_booking_email(
                                         st.session_state.supplier_email,
                                         st.session_state.supplier_name,
@@ -464,7 +477,7 @@ def main():
                             
                             # Wait a moment then rerun
                             import time
-                            time.sleep(5)
+                            time.sleep(2)
                             st.rerun()
                         else:
                             st.error("❌ Error al guardar reserva")
