@@ -131,7 +131,7 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         subject = "Confirmación de Reserva de Entrega"
         
         body = f"""
-        Estimado/a {supplier_name},
+        Hola {supplier_name},
         
         Su reserva de entrega ha sido confirmada exitosamente.
         
@@ -141,18 +141,17 @@ def send_booking_email(supplier_email, supplier_name, booking_details):
         🕐 Horario: {booking_details['Hora']}
         📦 Número de bultos: {booking_details['Numero_de_bultos']}
         📋 Orden de compra: {booking_details['Orden_de_compra']}
-        👤 Proveedor: {booking_details['Proveedor']}
         
         INSTRUCCIONES:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        • Llegue puntualmente en el horario reservado
-        • Tenga lista la documentación de la orden de compra
-        • Asegúrese de que los bultos estén correctamente etiquetados
+        • Llegue puntualmente en el horario reservado, caso contrario, podria tener que esperar hasta que el próximo cupo disponible
+        • Tenga lista la orden de compra y cualquier otra documentación relevante
+        • Asegúrese de que el producto y el número de bultos coincidan con la orden de compra
         
         Gracias por utilizar nuestro sistema de reservas.
         
         Saludos cordiales,
-        Equipo de Almacén
+        Equipo de Almacén Dismac
         """
         
         # Create message
