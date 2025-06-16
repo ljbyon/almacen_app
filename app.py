@@ -241,25 +241,39 @@ def authenticate_user(usuario, password):
     if credentials_df is None:
         return False, "Error al cargar credenciales", None
     
-    # Debug: Show available columns
+    # Debug: Show available columns and sample data
     st.write("**Columnas disponibles:**", list(credentials_df.columns))
+    st.write("**Usuarios disponibles:**")
+    st.dataframe(credentials_df[['usuario', 'Email']])
+    
+    # Debug: Show what user is entering
+    st.write(f"**Intentando autenticar:** usuario='{usuario}', password='{len(password)} caracteres'")
+    
+    # Clean and compare
+    df_usuarios = credentials_df['usuario'].astype(str).str.strip()
+    df_passwords = credentials_df['password'].astype(str).str.strip()
+    
+    input_usuario = str(usuario).strip()
+    input_password = str(password).strip()
+    
+    # Debug: Show exact values
+    st.write("**Usuarios en archivo:**", df_usuarios.tolist())
+    st.write("**Usuario ingresado:**", f"'{input_usuario}'")
     
     # Check credentials
     user_match = credentials_df[
-        (credentials_df['usuario'].astype(str).str.strip() == str(usuario).strip()) & 
-        (credentials_df['password'].astype(str).str.strip() == str(password).strip())
+        (df_usuarios == input_usuario) & 
+        (df_passwords == input_password)
     ]
     
+    st.write(f"**Coincidencias encontradas:** {len(user_match)}")
+    
     if not user_match.empty:
-        # Try to get email if column exists
+        # Get email
         email = None
         try:
-            if 'Email' in credentials_df.columns:
-                email = user_match.iloc[0]['Email']
-            elif 'email' in credentials_df.columns:
-                email = user_match.iloc[0]['email']
-            else:
-                st.warning("⚠️ Columna 'Email' no encontrada en el archivo")
+            email = user_match.iloc[0]['Email']
+            st.write(f"**Email encontrado:** {email}")
         except Exception as e:
             st.warning(f"⚠️ Error accediendo al email: {e}")
         
