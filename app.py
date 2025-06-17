@@ -82,7 +82,18 @@ def save_booking_to_excel(new_booking):
         
         if reservas_df is None:
             return False
-        
+
+        try:
+            gestion_df = pd.read_excel(file_content, sheet_name="proveedor_gestion")
+        except ValueError:
+            # Create empty if doesn't exist
+            gestion_df = pd.DataFrame(columns=[
+                'Orden_de_compra', 'Proveedor', 'Numero_de_bultos',
+                'Hora_llegada', 'Hora_inicio_atencion', 'Hora_fin_atencion',
+                'Tiempo_espera', 'Tiempo_atencion', 'Tiempo_total', 'Tiempo_retraso',
+                'numero_de_semana', 'hora_de_reserva'
+            ])
+
         # Add new booking
         new_row = pd.DataFrame([new_booking])
         updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
@@ -96,7 +107,8 @@ def save_booking_to_excel(new_booking):
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
             updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
-        
+            gestion_df.to_excel(writer, sheet_name="proveedor_gestion", index=False)  # ← ADD THIS
+       
         # Get the file info
         file = ctx.web.get_file_by_id(FILE_ID)
         ctx.load(file)
