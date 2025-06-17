@@ -31,11 +31,11 @@ except KeyError as e:
     st.stop()
 
 # ─────────────────────────────────────────────────────────────
-# 2. Excel Download Functions
+# 2. Excel Download Functions - UPDATED TO INCLUDE GESTION SHEET
 # ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def download_excel_to_memory():
-    """Download Excel file from SharePoint to memory"""
+    """Download Excel file from SharePoint to memory - INCLUDES ALL SHEETS"""
     try:
         # Authenticate
         user_credentials = UserCredential(USERNAME, PASSWORD)
@@ -64,36 +64,37 @@ def download_excel_to_memory():
         
         file_content.seek(0)
         
-        # Load both sheets
+        # Load all sheets - UPDATED
         credentials_df = pd.read_excel(file_content, sheet_name="proveedor_credencial", dtype=str)
         reservas_df = pd.read_excel(file_content, sheet_name="proveedor_reservas")
         
-        return credentials_df, reservas_df
-        
-    except Exception as e:
-        st.error(f"Error descargando Excel: {str(e)}")
-        return None, None
-
-def save_booking_to_excel(new_booking):
-    """Save new booking to Excel file"""
-    try:
-        # Load current data
-        credentials_df, reservas_df = download_excel_to_memory()
-        
-        if reservas_df is None:
-            return False
-
+        # Try to load gestion sheet, create empty if doesn't exist - NEW
         try:
             gestion_df = pd.read_excel(file_content, sheet_name="proveedor_gestion")
         except ValueError:
-            # Create empty if doesn't exist
+            # Create empty gestion dataframe with required columns if sheet doesn't exist
             gestion_df = pd.DataFrame(columns=[
                 'Orden_de_compra', 'Proveedor', 'Numero_de_bultos',
                 'Hora_llegada', 'Hora_inicio_atencion', 'Hora_fin_atencion',
                 'Tiempo_espera', 'Tiempo_atencion', 'Tiempo_total', 'Tiempo_retraso',
                 'numero_de_semana', 'hora_de_reserva'
             ])
+        
+        return credentials_df, reservas_df, gestion_df
+        
+    except Exception as e:
+        st.error(f"Error descargando Excel: {str(e)}")
+        return None, None, None
 
+def save_booking_to_excel(new_booking):
+    """Save new booking to Excel file - PRESERVES ALL SHEETS"""
+    try:
+        # Load current data - UPDATED TO LOAD ALL SHEETS
+        credentials_df, reservas_df, gestion_df = download_excel_to_memory()
+        
+        if reservas_df is None:
+            return False
+        
         # Add new booking
         new_row = pd.DataFrame([new_booking])
         updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
@@ -102,13 +103,13 @@ def save_booking_to_excel(new_booking):
         user_credentials = UserCredential(USERNAME, PASSWORD)
         ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
         
-        # Create Excel file
+        # Create Excel file - UPDATED TO SAVE ALL SHEETS
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
             updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
-            gestion_df.to_excel(writer, sheet_name="proveedor_gestion", index=False)  # ← ADD THIS
-       
+            gestion_df.to_excel(writer, sheet_name="proveedor_gestion", index=False)  # NEW - PRESERVE GESTION SHEET
+        
         # Get the file info
         file = ctx.web.get_file_by_id(FILE_ID)
         ctx.load(file)
@@ -250,11 +251,11 @@ def get_available_slots(selected_date, reservas_df):
     return [slot for slot in all_slots if slot not in booked_slots]
 
 # ─────────────────────────────────────────────────────────────
-# 5. Authentication Function
+# 5. Authentication Function - UPDATED TO USE ALL SHEETS
 # ─────────────────────────────────────────────────────────────
 def authenticate_user(usuario, password):
     """Authenticate user against Excel data and get email"""
-    credentials_df, _ = download_excel_to_memory()
+    credentials_df, _, _ = download_excel_to_memory()  # UPDATED - Now returns 3 values
     
     if credentials_df is None:
         return False, "Error al cargar credenciales", None
@@ -289,14 +290,14 @@ def authenticate_user(usuario, password):
     return False, "Contraseña incorrecta", None
 
 # ─────────────────────────────────────────────────────────────
-# 4. Main App
+# 6. Main App - UPDATED TO USE ALL SHEETS
 # ─────────────────────────────────────────────────────────────
 def main():
     st.title("🚚 Dismac: Reserva de Entrega de Mercadería")
     
-    # Download Excel when app starts
+    # Download Excel when app starts - UPDATED
     with st.spinner("Cargando datos..."):
-        credentials_df, reservas_df = download_excel_to_memory()
+        credentials_df, reservas_df, gestion_df = download_excel_to_memory()  # UPDATED - Now gets 3 values
     
     if credentials_df is None:
         st.error("❌ Error al cargar archivo")
