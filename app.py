@@ -483,6 +483,8 @@ def main():
         st.session_state.supplier_email = None
     if 'supplier_cc_emails' not in st.session_state:
         st.session_state.supplier_cc_emails = []
+    if 'slot_error_message' not in st.session_state:
+        st.session_state.slot_error_message = None
     
     # Authentication
     if not st.session_state.authenticated:
@@ -559,6 +561,14 @@ def main():
         #    _, fresh_reservas_df, _ = download_excel_to_memory()
         
         # Generate all slots and check availability
+        
+        # Show any persistent error message
+        if st.session_state.slot_error_message:
+            st.error(f"❌ {st.session_state.slot_error_message}")
+            # Clear the error after showing it
+            st.session_state.slot_error_message = None
+    
+    
         weekday_slots, saturday_slots = generate_time_slots()
         
         if selected_date.weekday() == 5:  # Saturday
