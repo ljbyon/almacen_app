@@ -553,31 +553,27 @@ def main():
             return
         
         # Time slot selection
+        #st.subheader("🕐 Horarios Disponibles")
         st.subheader("🕐 Horarios Disponibles")
-        
-        # Download fresh data before showing available slots (as requested)
-        #with st.spinner("Verificando disponibilidad..."):
-        #    download_excel_to_memory.clear()
-        #    _, fresh_reservas_df, _ = download_excel_to_memory()
-        
-        # Generate all slots and check availability
-        
+
+        # DEBUG: Show session state for error message
+        st.write(f"DEBUG: slot_error_message = {st.session_state.slot_error_message}")
+
         # Show any persistent error message
         if st.session_state.slot_error_message:
             st.error(f"❌ {st.session_state.slot_error_message}")
-                
-    
+
         weekday_slots, saturday_slots = generate_time_slots()
-        
+
         if selected_date.weekday() == 5:  # Saturday
             all_slots = saturday_slots
         else:  # Monday-Friday
             all_slots = weekday_slots
-        
+
         # Get booked slots for this date
         date_str = selected_date.strftime('%Y-%m-%d') + ' 00:00:00'
         booked_reservas = reservas_df[reservas_df['Fecha'] == date_str]['Hora'].tolist()
-        
+
         # Convert booked slots to "09:00" format for comparison
         booked_slots = []
         for booked_hora in booked_reservas:
@@ -587,14 +583,14 @@ def main():
                 booked_slots.append(formatted_slot)
             else:
                 booked_slots.append(str(booked_hora))
-        
+
         if not all_slots:
             st.warning("❌ No hay horarios para esta fecha")
             return
-        
-        # Display slots (2 per row)
+
+        # Display slots (2 per row) - UPDATED ERROR HANDLING
         selected_slot = None
-        
+
         for i in range(0, len(all_slots), 2):
             col1, col2 = st.columns(2)
             
@@ -614,8 +610,12 @@ def main():
                         if is_available:
                             selected_slot = slot1
                             st.session_state.slot_error_message = None
+                            st.write(f"DEBUG: Slot {slot1} available, cleared error message")
                         else:
+                            # IMMEDIATE ERROR DISPLAY + STORE IN SESSION
+                            st.error(f"❌ {message}")
                             st.session_state.slot_error_message = message
+                            st.write(f"DEBUG: Slot {slot1} taken, stored error: {message}")
                             st.rerun()
             
             # Second slot (if exists)
@@ -635,9 +635,14 @@ def main():
                             if is_available:
                                 selected_slot = slot2
                                 st.session_state.slot_error_message = None
+                                st.write(f"DEBUG: Slot {slot2} available, cleared error message")
                             else:
+                                # IMMEDIATE ERROR DISPLAY + STORE IN SESSION
+                                st.error(f"❌ {message}")
                                 st.session_state.slot_error_message = message
+                                st.write(f"DEBUG: Slot {slot2} taken, stored error: {message}")
                                 st.rerun()
+                                
         
         # Booking form with MULTIPLE ORDEN DE COMPRA
         if selected_slot or 'selected_slot' in st.session_state:
