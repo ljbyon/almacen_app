@@ -432,16 +432,26 @@ def authenticate_user(usuario, password):
 def check_slot_availability(selected_date, slot_time):
     """Check if a specific slot is still available with fresh data"""
     try:
+        st.write(f"DEBUG: Checking slot {slot_time} for date {selected_date}")
+        
         # Force fresh download
         download_excel_to_memory.clear()
+        st.write("DEBUG: Cache cleared, downloading fresh data...")
+        
         _, fresh_reservas_df, _ = download_excel_to_memory()
         
         if fresh_reservas_df is None:
+            st.write("DEBUG: Fresh data download failed!")
             return False, "Error al verificar disponibilidad"
+        
+        st.write(f"DEBUG: Fresh data loaded, {len(fresh_reservas_df)} total reservations")
         
         # Check if slot is booked
         date_str = selected_date.strftime('%Y-%m-%d') + ' 00:00:00'
+        st.write(f"DEBUG: Looking for reservations on date: {date_str}")
+        
         booked_reservas = fresh_reservas_df[fresh_reservas_df['Fecha'] == date_str]['Hora'].tolist()
+        st.write(f"DEBUG: Found {len(booked_reservas)} reservations for this date: {booked_reservas}")
         
         # Convert booked slots to "09:00" format for comparison
         booked_slots = []
@@ -450,16 +460,22 @@ def check_slot_availability(selected_date, slot_time):
                 parts = str(booked_hora).split(':')
                 formatted_slot = f"{int(parts[0]):02d}:{parts[1]}"
                 booked_slots.append(formatted_slot)
+                st.write(f"DEBUG: Converted {booked_hora} to {formatted_slot}")
+        
+        st.write(f"DEBUG: Final booked slots list: {booked_slots}")
+        st.write(f"DEBUG: Checking if {slot_time} is in {booked_slots}")
         
         if slot_time in booked_slots:
+            st.write(f"DEBUG: SLOT TAKEN! {slot_time} found in booked slots")
             return False, "Otro proveedor acaba de reservar este horario. Por favor, elija otro."
         
+        st.write(f"DEBUG: SLOT AVAILABLE! {slot_time} not found in booked slots")
         return True, "Horario disponible"
         
     except Exception as e:
+        st.write(f"DEBUG: Exception in check_slot_availability: {str(e)}")
+        st.write(f"DEBUG: Exception type: {type(e).__name__}")
         return False, f"Error verificando disponibilidad: {str(e)}"
-        
-        
 # ─────────────────────────────────────────────────────────────
 # 6. Main App - UPDATED TO USE ALL SHEETS
 # ─────────────────────────────────────────────────────────────
