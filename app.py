@@ -637,12 +637,17 @@ def main():
                                 is_available, message = check_slot_availability(selected_date, slot2)
                             
                             if is_available:
+                                st.write(f"✅ DEBUG: Slot available path")
                                 st.write(message)
                                 selected_slot = slot2
                                 st.session_state.slot_error_message = None
                             else:
+                                st.write(f"❌ DEBUG: Slot NOT available path")
+                                st.write(f"📝 DEBUG: Message to display: '{message}'")
                                 st.write(message)
                                 st.error(f"❌ {message}")
+                                st.write(f"🔚 DEBUG: Error displayed")
+
         
         # Booking form with MULTIPLE ORDEN DE COMPRA
         if selected_slot or 'selected_slot' in st.session_state:
