@@ -451,9 +451,6 @@ def check_slot_availability(selected_date, slot_time):
                 formatted_slot = f"{int(parts[0]):02d}:{parts[1]}"
                 booked_slots.append(formatted_slot)
         
-        st.write(slot_time)
-        st.write(booked_slots)
-        
         if slot_time in booked_slots:
             return False, "Otro proveedor acaba de reservar este horario. Por favor, elija otro."
         
@@ -615,12 +612,11 @@ def main():
                             is_available, message = check_slot_availability(selected_date, slot1)
                         
                         if is_available:
-                            st.write(message)
                             selected_slot = slot1
                             st.session_state.slot_error_message = None
                         else:
-                            st.write(message)
-                            st.error(f"❌ {message}")
+                            st.session_state.slot_error_message = message
+                            st.rerun()
             
             # Second slot (if exists)
             if i + 1 < len(all_slots):
@@ -634,24 +630,14 @@ def main():
                         if st.button(f"✅ {slot2}", key=f"slot_{i+1}", use_container_width=True):
                             # FRESH CHECK ON CLICK
                             with st.spinner("Verificando disponibilidad..."):
-                                st.write(f"🔄 DEBUG: About to call check_slot_availability for {slot2}")
                                 is_available, message = check_slot_availability(selected_date, slot2)
-                                st.write(f"📤 DEBUG: Function returned - is_available: {is_available}, message: '{message}'")
-                            
-                            st.write(f"🎯 DEBUG: After spinner - is_available: {is_available}")
                             
                             if is_available:
-                                st.write(f"✅ DEBUG: Slot available path")
-                                st.write(message)
                                 selected_slot = slot2
                                 st.session_state.slot_error_message = None
                             else:
-                                st.write(f"❌ DEBUG: Slot NOT available path")
-                                st.write(f"📝 DEBUG: Message to display: '{message}'")
-                                st.write(message)
-                                st.error(f"❌ {message}")
-                                st.write(f"🔚 DEBUG: Error displayed")
-
+                                st.session_state.slot_error_message = message
+                                st.rerun()
         
         # Booking form with MULTIPLE ORDEN DE COMPRA
         if selected_slot or 'selected_slot' in st.session_state:
