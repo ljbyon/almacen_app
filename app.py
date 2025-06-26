@@ -634,7 +634,11 @@ def main():
                         if st.button(f"✅ {slot2}", key=f"slot_{i+1}", use_container_width=True):
                             # FRESH CHECK ON CLICK
                             with st.spinner("Verificando disponibilidad..."):
+                                st.write(f"🔄 DEBUG: About to call check_slot_availability for {slot2}")
                                 is_available, message = check_slot_availability(selected_date, slot2)
+                                st.write(f"📤 DEBUG: Function returned - is_available: {is_available}, message: '{message}'")
+                            
+                            st.write(f"🎯 DEBUG: After spinner - is_available: {is_available}")
                             
                             if is_available:
                                 st.write(f"✅ DEBUG: Slot available path")
