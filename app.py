@@ -615,6 +615,7 @@ def main():
                             is_available, message = check_slot_availability(selected_date, slot1)
                         
                         if is_available:
+                            st.write(message)
                             selected_slot = slot1
                             st.session_state.slot_error_message = None
                         else:
