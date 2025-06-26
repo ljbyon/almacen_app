@@ -451,6 +451,9 @@ def check_slot_availability(selected_date, slot_time):
                 formatted_slot = f"{int(parts[0]):02d}:{parts[1]}"
                 booked_slots.append(formatted_slot)
         
+        st.write(slot_time)
+        st.write(booked_slots)
+        
         if slot_time in booked_slots:
             return False, "Otro proveedor acaba de reservar este horario. Por favor, elija otro."
         
