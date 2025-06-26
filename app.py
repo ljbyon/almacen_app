@@ -616,7 +616,7 @@ def main():
                         if is_available:
                             selected_slot = slot1
                         else:
-                            st.error(f"❌ {message}")
+                            st.session_state.slot_error_message = message
                             st.rerun()
             
             # Second slot (if exists)
@@ -636,7 +636,7 @@ def main():
                             if is_available:
                                 selected_slot = slot2
                             else:
-                                st.error(f"❌ {message}")
+                                st.session_state.slot_error_message = message
                                 st.rerun()
         
         # Booking form with MULTIPLE ORDEN DE COMPRA
