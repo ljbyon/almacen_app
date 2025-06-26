@@ -565,9 +565,7 @@ def main():
         # Show any persistent error message
         if st.session_state.slot_error_message:
             st.error(f"❌ {st.session_state.slot_error_message}")
-            # Clear the error after showing it
-            st.session_state.slot_error_message = None
-    
+                
     
         weekday_slots, saturday_slots = generate_time_slots()
         
@@ -615,6 +613,7 @@ def main():
                         
                         if is_available:
                             selected_slot = slot1
+                            st.session_state.slot_error_message = None
                         else:
                             st.session_state.slot_error_message = message
                             st.rerun()
@@ -635,6 +634,7 @@ def main():
                             
                             if is_available:
                                 selected_slot = slot2
+                                st.session_state.slot_error_message = None
                             else:
                                 st.session_state.slot_error_message = message
                                 st.rerun()
