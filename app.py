@@ -568,7 +568,7 @@ def main():
         
         # Get booked slots for this date
         date_str = selected_date.strftime('%Y-%m-%d') + ' 00:00:00'
-        booked_reservas = fresh_reservas_df[fresh_reservas_df['Fecha'] == date_str]['Hora'].tolist()
+        booked_reservas = reservas_df[reservas_df['Fecha'] == date_str]['Hora'].tolist()
         
         # Convert booked slots to "09:00" format for comparison
         booked_slots = []
