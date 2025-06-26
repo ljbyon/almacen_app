@@ -571,6 +571,24 @@ def main():
         # Time slot selection
         #st.subheader("🕐 Horarios Disponibles")
         st.subheader("🕐 Horarios Disponibles")
+        
+        # DEBUG: Show ALL session state
+        st.write("DEBUG: Full session state:")
+        for key, value in st.session_state.items():
+            st.write(f"  {key}: {value}")
+
+        # DEBUG: Specific error message check
+        st.write(f"DEBUG: slot_error_message = '{st.session_state.slot_error_message}'")
+        st.write(f"DEBUG: Error message is None? {st.session_state.slot_error_message is None}")
+        st.write(f"DEBUG: Error message is empty string? {st.session_state.slot_error_message == ''}")
+
+        # Show any persistent error message
+        if st.session_state.slot_error_message:
+            st.error(f"❌ {st.session_state.slot_error_message}")
+            st.write("DEBUG: Error message displayed!")
+        else:
+            st.write("DEBUG: No error message to display")
+            
 
         # DEBUG: Show session state for error message
         st.write(f"DEBUG: slot_error_message = {st.session_state.slot_error_message}")
