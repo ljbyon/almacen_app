@@ -35,7 +35,7 @@ except KeyError as e:
 # ─────────────────────────────────────────────────────────────
 # 2. Excel Download Functions - UPDATED TO INCLUDE GESTION SHEET
 # ─────────────────────────────────────────────────────────────
-@st.cache_data(ttl=300)  # Back to 5 minutes - only clear when needed
+@st.cache_data(ttl=300, show_spinner=False)  # Add show_spinner=False
 def download_excel_to_memory():
     """Download Excel file from SharePoint to memory - INCLUDES ALL SHEETS"""
     try:
