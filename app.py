@@ -619,6 +619,7 @@ def main():
                             selected_slot = slot1
                             st.session_state.slot_error_message = None
                         else:
+                            st.write(message)
                             st.error(f"❌ {message}")
             
             # Second slot (if exists)
@@ -639,6 +640,7 @@ def main():
                                 selected_slot = slot2
                                 st.session_state.slot_error_message = None
                             else:
+                                st.write(message)
                                 st.error(f"❌ {message}")
         
         # Booking form with MULTIPLE ORDEN DE COMPRA
