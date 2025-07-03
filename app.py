@@ -250,7 +250,7 @@ def send_booking_email(supplier_email, supplier_name, booking_details, cc_emails
     try:
         # Use provided CC emails or default
         if cc_emails is None or len(cc_emails) == 0:
-            cc_emails = ["ljbyon@dismac.com.bo"]
+            cc_emails = [ "ljbyon@dismac.com.bo"]
         else:
             # Add default email to the CC list if not already present
             if "marketplace@dismac.com.bo" not in cc_emails:
@@ -547,6 +547,8 @@ def main():
         st.session_state.numero_bultos = None
     if 'orden_compra_list' not in st.session_state:
         st.session_state.orden_compra_list = ['']
+    if 'selected_slot_info' not in st.session_state:
+        st.session_state.selected_slot_info = None
     
     # Authentication
     if not st.session_state.authenticated:
@@ -571,6 +573,7 @@ def main():
                         st.session_state.selected_date = None
                         st.session_state.numero_bultos = None
                         st.session_state.orden_compra_list = ['']
+                        st.session_state.selected_slot_info = None
                         st.success(message)
                         st.rerun()
                     else:
@@ -594,6 +597,7 @@ def main():
                 st.session_state.selected_date = None
                 st.session_state.numero_bultos = None
                 st.session_state.orden_compra_list = ['']
+                st.session_state.selected_slot_info = None
                 st.rerun()
         
         st.markdown("---")
@@ -678,7 +682,10 @@ def main():
                     if not valid_orders:
                         st.error("❌ Al menos una orden de compra es obligatoria")
         
-
+        # STEP 2: DATE AND TIME SLOT SELECTION
+        elif st.session_state.booking_step == 2:
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
         # STEP 2: DATE AND TIME SLOT SELECTION
         elif st.session_state.booking_step == 2:
             st.subheader("📅 Paso 2: Seleccionar Fecha y Horario")
@@ -711,6 +718,7 @@ def main():
                 with col1:
                     if st.button("⬅️ Volver", use_container_width=True):
                         st.session_state.booking_step = 1
+                        st.session_state.selected_slot_info = None  # Clear selected slot when going back
                         st.rerun()
                 return
             
@@ -731,6 +739,7 @@ def main():
                 with col1:
                     if st.button("⬅️ Volver", use_container_width=True):
                         st.session_state.booking_step = 1
+                        st.session_state.selected_slot_info = None  # Clear selected slot when going back
                         st.rerun()
                 return
             
@@ -738,8 +747,6 @@ def main():
             st.subheader("🕐 Horarios Disponibles")
             
             # Display slots (2 per row)
-            selected_slot_info = None
-            
             for i in range(0, len(available_slot_info), 2):
                 col1, col2 = st.columns(2)
                 
@@ -761,9 +768,10 @@ def main():
                             )
                         
                         if is_available:
-                            selected_slot_info = (display_time1, booking_slots1)
+                            st.session_state.selected_slot_info = (display_time1, booking_slots1)
                             st.session_state.selected_date = selected_date
                             st.session_state.slot_error_message = None
+                            st.rerun()
                         else:
                             st.session_state.slot_error_message = message
                             st.rerun()
@@ -787,9 +795,10 @@ def main():
                                 )
                             
                             if is_available:
-                                selected_slot_info = (display_time2, booking_slots2)
+                                st.session_state.selected_slot_info = (display_time2, booking_slots2)
                                 st.session_state.selected_date = selected_date
                                 st.session_state.slot_error_message = None
+                                st.rerun()
                             else:
                                 st.session_state.slot_error_message = message
                                 st.rerun()
@@ -799,14 +808,15 @@ def main():
             with col1:
                 if st.button("⬅️ Volver", use_container_width=True):
                     st.session_state.booking_step = 1
+                    st.session_state.selected_slot_info = None  # Clear selected slot when going back
                     st.rerun()
             
             # Final booking confirmation
-            if selected_slot_info:
+            if st.session_state.selected_slot_info:
                 st.markdown("---")
                 st.subheader("✅ Confirmar Reserva")
                 
-                display_time, booking_slots = selected_slot_info
+                display_time, booking_slots = st.session_state.selected_slot_info
                 
                 # Show booking summary
                 st.info(f"📅 Fecha: {selected_date}")
@@ -820,12 +830,13 @@ def main():
                     with st.spinner("Verificando disponibilidad final..."):
                         is_still_available, availability_message = check_slot_availability_new_flow(
                             selected_date, 
-                            selected_slot_info, 
+                            st.session_state.selected_slot_info, 
                             st.session_state.numero_bultos
                         )
                     
                     if not is_still_available:
                         st.error(f"❌ {availability_message}")
+                        st.session_state.selected_slot_info = None  # Clear selected slot
                         st.rerun()
                         return
                     
@@ -899,6 +910,7 @@ def main():
                         st.session_state.selected_date = None
                         st.session_state.numero_bultos = None
                         st.session_state.orden_compra_list = ['']
+                        st.session_state.selected_slot_info = None
                         
                         # Wait a moment then rerun
                         import time
