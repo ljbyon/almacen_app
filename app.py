@@ -598,9 +598,9 @@ def main():
         
         st.markdown("---")
         
-        # STEP 1: DATE SELECTION
+        # STEP 1: DATE AND PACKAGE COUNT SELECTION
         if st.session_state.booking_step == 1:
-            st.subheader("📅 Paso 1: Seleccionar Fecha")
+            st.subheader("📅 Paso 1: Seleccionar Fecha y Número de Bultos")
             st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Le rogamos seleccionar la fecha con atención, ya que, una vez confirmada, no podrá ser modificada ni cancelada.</p>', unsafe_allow_html=True)
             
             today = datetime.now().date()
@@ -619,18 +619,6 @@ def main():
                 st.warning("⚠️ No trabajamos los domingos")
                 return
             
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if st.button("Continuar ➡️", use_container_width=True):
-                    st.session_state.selected_date = selected_date
-                    st.session_state.booking_step = 2
-                    st.rerun()
-        
-        # STEP 2: PACKAGE COUNT AND PURCHASE ORDERS
-        elif st.session_state.booking_step == 2:
-            st.subheader("📦 Paso 2: Información de Entrega")
-            st.info(f"📅 Fecha seleccionada: {st.session_state.selected_date}")
-            
             # Number of packages
             numero_bultos = st.number_input(
                 "📦 Número de bultos", 
@@ -644,6 +632,22 @@ def main():
                 st.info("💡 Con 1-4 bultos, podrá reservar slots de 30 minutos")
             else:
                 st.info("💡 Con 5 o más bultos, podrá reservar slots de 1 hora")
+            
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col2:
+                if st.button("Continuar ➡️", use_container_width=True):
+                    st.session_state.selected_date = selected_date
+                    st.session_state.numero_bultos = numero_bultos
+                    st.session_state.booking_step = 2
+                    st.rerun()
+        
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
+            st.subheader("📋 Paso 2: Órdenes de Compra")
+            st.info(f"📅 Fecha seleccionada: {st.session_state.selected_date}")
+            st.info(f"📦 Número de bultos: {st.session_state.numero_bultos}")
             
             # Multiple Purchase orders section
             st.write("📋 **Órdenes de compra** *")
@@ -698,7 +702,6 @@ def main():
                 valid_orders = [orden.strip() for orden in orden_compra_values if orden.strip()]
                 if valid_orders:
                     if st.button("Continuar ➡️", use_container_width=True):
-                        st.session_state.numero_bultos = numero_bultos
                         st.session_state.booking_step = 3
                         st.rerun()
                 else:
