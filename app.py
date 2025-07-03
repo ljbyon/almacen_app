@@ -99,7 +99,7 @@ def download_excel_to_memory():
         st.error(f"Error type: {type(e).__name__}")
         return None, None, None
 
-def save_booking_to_excel(new_booking):
+def save_booking_to_excel(new_booking, bultos_count):
     """Save new booking to Excel file - PRESERVES ALL SHEETS"""
     try:
         # Load current data
@@ -109,9 +109,26 @@ def save_booking_to_excel(new_booking):
             st.error("❌ No se pudo cargar el archivo Excel")
             return False
         
-        # Add new booking
-        new_row = pd.DataFrame([new_booking])
-        updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
+        # For 5+ bultos, save two consecutive 30-minute slots
+        if bultos_count >= 5:
+            # Parse the hour from the booking (e.g., "09:00:00" -> 9)
+            hour_str = new_booking['Hora'].split(':')[0]
+            hour = int(hour_str)
+            
+            # Create two bookings: one for HH:00 and one for HH:30
+            booking_1 = new_booking.copy()
+            booking_1['Hora'] = f"{hour:02d}:00:00"
+            
+            booking_2 = new_booking.copy()
+            booking_2['Hora'] = f"{hour:02d}:30:00"
+            
+            # Add both bookings
+            new_rows = pd.DataFrame([booking_1, booking_2])
+            updated_reservas_df = pd.concat([reservas_df, new_rows], ignore_index=True)
+        else:
+            # For 1-4 bultos, save single booking
+            new_row = pd.DataFrame([new_booking])
+            updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
         
         # Authenticate and upload
         user_credentials = UserCredential(USERNAME, PASSWORD)
@@ -244,11 +261,11 @@ def send_booking_email(supplier_email, supplier_name, booking_details, cc_emails
     try:
         # Use provided CC emails or default
         if cc_emails is None or len(cc_emails) == 0:
-            cc_emails = ["ljbyon@dismac.com.bo"]
+            cc_emails = [ "ljbyon@dismac.com.bo"]
         else:
             # Add default email to the CC list if not already present
             if "marketplace@dismac.com.bo" not in cc_emails:
-                cc_emails = cc_emails + [ "ljbyon@dismac.com.bo"]
+                cc_emails = cc_emails + ["ljbyon@dismac.com.bo"]
         
         # Email content
         subject = "Confirmación de Reserva para Entrega de Mercadería"
@@ -357,50 +374,20 @@ def generate_time_slots(bultos_count):
                 start_time = f"{hour:02d}:{minute:02d}"
                 saturday_slots.append(start_time)
     else:
-        # 1-hour slots for 5+ bultos (consecutive 30-minute slots)
-        # Weekday slots (9:00-16:00) - but only slots that allow 1-hour booking
+        # 1-hour slots for 5+ bultos
+        # Weekday slots (9:00-16:00) - 1-hour intervals
         start_hour = 9
         end_hour = 15  # Last slot at 15:00-16:00
-        for hour in range(start_hour, end_hour):
-            for minute in [0, 30]:
-                start_time = f"{hour:02d}:{minute:02d}"
-                # Calculate end time (1 hour later)
-                end_minute = minute + 30
-                end_hour_calc = hour
-                if end_minute >= 60:
-                    end_minute = 0
-                    end_hour_calc += 1
-                
-                # Only include if end time is within working hours
-                if end_hour_calc < 16 or (end_hour_calc == 16 and end_minute == 0):
-                    weekday_slots.append(start_time)
+        for hour in range(start_hour, end_hour + 1):
+            start_time = f"{hour:02d}:00"
+            weekday_slots.append(start_time)
         
-        # Saturday slots (9:00-12:00) - but only slots that allow 1-hour booking
-        for hour in range(9, 11):  # Last slot at 11:00-12:00
-            for minute in [0, 30]:
-                start_time = f"{hour:02d}:{minute:02d}"
-                # Calculate end time (1 hour later)
-                end_minute = minute + 30
-                end_hour_calc = hour
-                if end_minute >= 60:
-                    end_minute = 0
-                    end_hour_calc += 1
-                
-                # Only include if end time is within working hours
-                if end_hour_calc < 12 or (end_hour_calc == 12 and end_minute == 0):
-                    saturday_slots.append(start_time)
+        # Saturday slots (9:00-12:00) - 1-hour intervals
+        for hour in range(9, 12):
+            start_time = f"{hour:02d}:00"
+            saturday_slots.append(start_time)
     
     return weekday_slots, saturday_slots
-
-def get_next_slot(slot_time):
-    """Get the next 30-minute slot after the given slot"""
-    hour, minute = map(int, slot_time.split(':'))
-    next_minute = minute + 30
-    next_hour = hour
-    if next_minute >= 60:
-        next_minute = 0
-        next_hour += 1
-    return f"{next_hour:02d}:{next_minute:02d}"
 
 def get_available_slots(selected_date, reservas_df, bultos_count):
     """Get available slots for a date based on bultos count"""
@@ -429,15 +416,19 @@ def get_available_slots(selected_date, reservas_df, bultos_count):
             booked_slots_formatted.append(formatted_slot)
     
     if bultos_count <= 4:
-        # For 1-4 bultos, just check single slots
+        # For 1-4 bultos, just check single 30-minute slots
         return [slot for slot in all_slots if slot not in booked_slots_formatted]
     else:
-        # For 5+ bultos, check that both consecutive slots are available
+        # For 5+ bultos, check that both 30-minute slots within the 1-hour slot are available
         available_slots = []
         for slot in all_slots:
-            next_slot = get_next_slot(slot)
-            if (slot not in booked_slots_formatted and 
-                next_slot not in booked_slots_formatted):
+            # For 1-hour slots like "09:00", check both "09:00" and "09:30"
+            hour = int(slot.split(':')[0])
+            slot_30_1 = f"{hour:02d}:00"
+            slot_30_2 = f"{hour:02d}:30"
+            
+            if (slot_30_1 not in booked_slots_formatted and 
+                slot_30_2 not in booked_slots_formatted):
                 available_slots.append(slot)
         return available_slots
 
@@ -507,7 +498,7 @@ def check_slot_availability(selected_date, slot_time, bultos_count):
         date_str = selected_date.strftime('%Y-%m-%d') + ' 00:00:00'
         booked_reservas = fresh_reservas_df[fresh_reservas_df['Fecha'] == date_str]['Hora'].tolist()
         
-        # Convert booked slots to "09:00" format for comparison
+        # Convert booked slots to "HH:MM" format for comparison
         booked_slots = []
         for booked_hora in booked_reservas:
             if ':' in str(booked_hora):
@@ -516,13 +507,16 @@ def check_slot_availability(selected_date, slot_time, bultos_count):
                 booked_slots.append(formatted_slot)
         
         if bultos_count <= 4:
-            # For 1-4 bultos, just check single slot
+            # For 1-4 bultos, just check single 30-minute slot
             if slot_time in booked_slots:
                 return False, "Otro proveedor acaba de reservar este horario. Por favor, elija otro."
         else:
-            # For 5+ bultos, check both consecutive slots
-            next_slot = get_next_slot(slot_time)
-            if slot_time in booked_slots or next_slot in booked_slots:
+            # For 5+ bultos, check both 30-minute slots within the 1-hour slot
+            hour = int(slot_time.split(':')[0])
+            slot_30_1 = f"{hour:02d}:00"
+            slot_30_2 = f"{hour:02d}:30"
+            
+            if slot_30_1 in booked_slots or slot_30_2 in booked_slots:
                 return False, "Otro proveedor acaba de reservar este horario de 1 hora. Por favor, elija otro."
         
         return True, "Horario disponible"
@@ -755,13 +749,16 @@ def main():
             available_slots = []
             for slot in all_slots:
                 if st.session_state.numero_bultos <= 4:
-                    # For 1-4 bultos, just check single slot
+                    # For 1-4 bultos, just check single 30-minute slot
                     if slot not in booked_slots:
                         available_slots.append(slot)
                 else:
-                    # For 5+ bultos, check both consecutive slots
-                    next_slot = get_next_slot(slot)
-                    if slot not in booked_slots and next_slot not in booked_slots:
+                    # For 5+ bultos, check both 30-minute slots within the 1-hour slot
+                    hour = int(slot.split(':')[0])
+                    slot_30_1 = f"{hour:02d}:00"
+                    slot_30_2 = f"{hour:02d}:30"
+                    
+                    if slot_30_1 not in booked_slots and slot_30_2 not in booked_slots:
                         available_slots.append(slot)
             
             if not available_slots:
@@ -779,8 +776,10 @@ def main():
                 with col1:
                     slot_display = f"✅ {slot1}"
                     if st.session_state.numero_bultos >= 5:
-                        next_slot1 = get_next_slot(slot1)
-                        slot_display += f" - {next_slot1}"
+                        # For 1-hour slots, show the range (e.g., "09:00 - 10:00")
+                        hour = int(slot1.split(':')[0])
+                        end_hour = hour + 1
+                        slot_display = f"✅ {slot1} - {end_hour:02d}:00"
                     
                     if st.button(slot_display, key=f"slot_{i}", use_container_width=True):
                         # FRESH CHECK ON CLICK
@@ -804,8 +803,10 @@ def main():
                     with col2:
                         slot_display = f"✅ {slot2}"
                         if st.session_state.numero_bultos >= 5:
-                            next_slot2 = get_next_slot(slot2)
-                            slot_display += f" - {next_slot2}"
+                            # For 1-hour slots, show the range (e.g., "10:00 - 11:00")
+                            hour = int(slot2.split(':')[0])
+                            end_hour = hour + 1
+                            slot_display = f"✅ {slot2} - {end_hour:02d}:00"
                         
                         if st.button(slot_display, key=f"slot_{i+1}", use_container_width=True):
                             # FRESH CHECK ON CLICK
@@ -831,8 +832,10 @@ def main():
             st.info(f"📅 Fecha: {st.session_state.selected_date}")
             slot_display = f"🕐 Horario: {st.session_state.selected_slot}"
             if st.session_state.numero_bultos >= 5:
-                next_slot = get_next_slot(st.session_state.selected_slot)
-                slot_display += f" - {next_slot}"
+                # For 1-hour slots, show the range
+                hour = int(st.session_state.selected_slot.split(':')[0])
+                end_hour = hour + 1
+                slot_display = f"🕐 Horario: {st.session_state.selected_slot} - {end_hour:02d}:00"
             st.info(slot_display)
             st.info(f"📦 Número de bultos: {st.session_state.numero_bultos}")
             
@@ -887,7 +890,7 @@ def main():
                     }
                     
                     with st.spinner("Guardando reserva..."):
-                        success = save_booking_to_excel(new_booking)
+                        success = save_booking_to_excel(new_booking, st.session_state.numero_bultos)
                     
                     if success:
                         st.success("✅ Reserva confirmada!")
