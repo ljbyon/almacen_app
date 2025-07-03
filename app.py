@@ -610,6 +610,10 @@ def main():
                 help="Cantidad de bultos o paquetes a entregar"
             )
             
+            # Error message for empty numero_bultos
+            if numero_bultos is None:
+                st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
+            
             # Package count info
             if numero_bultos is not None:
                 if numero_bultos <= 4:
@@ -671,12 +675,13 @@ def main():
                         st.rerun()
                 else:
                     st.button("Continuar ➡️", disabled=True, use_container_width=True)
-                    if numero_bultos is None:
-                        st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
-                    elif not valid_orders:
+                    if not valid_orders:
                         st.error("❌ Al menos una orden de compra es obligatoria")
         
-
+        # STEP 2: DATE AND TIME SLOT SELECTION
+        elif st.session_state.booking_step == 2:
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
         # STEP 2: DATE AND TIME SLOT SELECTION
         elif st.session_state.booking_step == 2:
             st.subheader("📅 Paso 2: Seleccionar Fecha y Horario")
