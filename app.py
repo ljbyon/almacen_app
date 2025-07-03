@@ -641,8 +641,7 @@ def main():
                     st.session_state.booking_step = 2
                     st.rerun()
         
-        # STEP 2: PURCHASE ORDERS
-        elif st.session_state.booking_step == 2:
+
         # STEP 2: PURCHASE ORDERS
         elif st.session_state.booking_step == 2:
             st.subheader("📋 Paso 2: Órdenes de Compra")
