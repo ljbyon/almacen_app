@@ -598,26 +598,9 @@ def main():
         
         st.markdown("---")
         
-        # STEP 1: DATE AND PACKAGE COUNT SELECTION
+        # STEP 1: PACKAGE COUNT AND PURCHASE ORDERS
         if st.session_state.booking_step == 1:
-            st.subheader("📅 Paso 1: Seleccionar Fecha y Número de Bultos")
-            st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Le rogamos seleccionar la fecha con atención, ya que, una vez confirmada, no podrá ser modificada ni cancelada.</p>', unsafe_allow_html=True)
-            
-            today = datetime.now().date()
-            max_date = today + timedelta(days=30)
-            
-            selected_date = st.date_input(
-                "Fecha de entrega",
-                min_value=today,
-                max_value=max_date,
-                value=today,
-                key="date_input"
-            )
-            
-            # Check if Sunday
-            if selected_date.weekday() == 6:
-                st.warning("⚠️ No trabajamos los domingos")
-                return
+            st.subheader("📦 Paso 1: Información de Entrega")
             
             # Number of packages
             numero_bultos = st.number_input(
@@ -633,25 +616,6 @@ def main():
                     st.info("💡 Con 1-4 bultos, podrá reservar slots de 30 minutos")
                 else:
                     st.info("💡 Con 5 o más bultos, podrá reservar slots de 1 hora")
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if numero_bultos is not None:
-                    if st.button("Continuar ➡️", use_container_width=True):
-                        st.session_state.selected_date = selected_date
-                        st.session_state.numero_bultos = numero_bultos
-                        st.session_state.booking_step = 2
-                        st.rerun()
-                else:
-                    st.button("Continuar ➡️", disabled=True, use_container_width=True)
-                    st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
-        
-
-        # STEP 2: PURCHASE ORDERS
-        elif st.session_state.booking_step == 2:
-            st.subheader("📋 Paso 2: Órdenes de Compra")
-            st.info(f"📅 Fecha seleccionada: {st.session_state.selected_date}")
-            st.info(f"📦 Número de bultos: {st.session_state.numero_bultos}")
             
             # Multiple Purchase orders section
             st.write("📋 **Órdenes de compra** *")
@@ -695,28 +659,61 @@ def main():
                     st.session_state.orden_compra_list.append('')
                     st.rerun()
             
-            # Navigation buttons
+            # Continue button
             col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                if st.button("⬅️ Volver", use_container_width=True):
-                    st.session_state.booking_step = 1
-                    st.rerun()
-            with col3:
+            with col2:
                 # Validate before continuing
                 valid_orders = [orden.strip() for orden in orden_compra_values if orden.strip()]
-                if valid_orders:
+                if numero_bultos is not None and valid_orders:
                     if st.button("Continuar ➡️", use_container_width=True):
-                        st.session_state.booking_step = 3
+                        st.session_state.numero_bultos = numero_bultos
+                        st.session_state.booking_step = 2
                         st.rerun()
                 else:
                     st.button("Continuar ➡️", disabled=True, use_container_width=True)
-                    st.error("❌ Al menos una orden de compra es obligatoria")
+                    if numero_bultos is None:
+                        st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
+                    elif not valid_orders:
+                        st.error("❌ Al menos una orden de compra es obligatoria")
         
-        # STEP 3: TIME SLOT SELECTION
-        elif st.session_state.booking_step == 3:
-            st.subheader("🕐 Paso 3: Seleccionar Horario")
-            st.info(f"📅 Fecha: {st.session_state.selected_date}")
-            st.info(f"📦 Bultos: {st.session_state.numero_bultos}")
+        # STEP 2: DATE AND TIME SLOT SELECTION
+        elif st.session_state.booking_step == 2:
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
+        # STEP 2: DATE AND TIME SLOT SELECTION
+        elif st.session_state.booking_step == 2:
+            st.subheader("📅 Paso 2: Seleccionar Fecha y Horario")
+            st.info(f"📦 Número de bultos: {st.session_state.numero_bultos}")
+            
+            # Package count info reminder
+            if st.session_state.numero_bultos <= 4:
+                st.info("💡 Con 1-4 bultos, puede reservar slots de 30 minutos")
+            else:
+                st.info("💡 Con 5 o más bultos, puede reservar slots de 1 hora")
+            
+            st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Le rogamos seleccionar la fecha y el horario con atención, ya que, una vez confirmados, no podrán ser modificados ni cancelados.</p>', unsafe_allow_html=True)
+            
+            # Date selection
+            today = datetime.now().date()
+            max_date = today + timedelta(days=30)
+            
+            selected_date = st.date_input(
+                "Fecha de entrega",
+                min_value=today,
+                max_value=max_date,
+                value=today,
+                key="date_input"
+            )
+            
+            # Check if Sunday
+            if selected_date.weekday() == 6:
+                st.warning("⚠️ No trabajamos los domingos")
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    if st.button("⬅️ Volver", use_container_width=True):
+                        st.session_state.booking_step = 1
+                        st.rerun()
+                return
             
             # Show any persistent error message
             if st.session_state.slot_error_message:
@@ -724,7 +721,7 @@ def main():
             
             # Get available slots based on package count
             available_slot_info = get_available_slots_by_package_count(
-                st.session_state.selected_date, 
+                selected_date, 
                 reservas_df, 
                 st.session_state.numero_bultos
             )
@@ -734,9 +731,12 @@ def main():
                 col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
                     if st.button("⬅️ Volver", use_container_width=True):
-                        st.session_state.booking_step = 2
+                        st.session_state.booking_step = 1
                         st.rerun()
                 return
+            
+            # Time slots header
+            st.subheader("🕐 Horarios Disponibles")
             
             # Display slots (2 per row)
             selected_slot_info = None
@@ -756,13 +756,14 @@ def main():
                         # FRESH CHECK ON CLICK
                         with st.spinner("Verificando disponibilidad..."):
                             is_available, message = check_slot_availability_new_flow(
-                                st.session_state.selected_date, 
+                                selected_date, 
                                 (display_time1, booking_slots1), 
                                 st.session_state.numero_bultos
                             )
                         
                         if is_available:
                             selected_slot_info = (display_time1, booking_slots1)
+                            st.session_state.selected_date = selected_date
                             st.session_state.slot_error_message = None
                         else:
                             st.session_state.slot_error_message = message
@@ -781,13 +782,14 @@ def main():
                             # FRESH CHECK ON CLICK
                             with st.spinner("Verificando disponibilidad..."):
                                 is_available, message = check_slot_availability_new_flow(
-                                    st.session_state.selected_date, 
+                                    selected_date, 
                                     (display_time2, booking_slots2), 
                                     st.session_state.numero_bultos
                                 )
                             
                             if is_available:
                                 selected_slot_info = (display_time2, booking_slots2)
+                                st.session_state.selected_date = selected_date
                                 st.session_state.slot_error_message = None
                             else:
                                 st.session_state.slot_error_message = message
@@ -797,7 +799,7 @@ def main():
             col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
                 if st.button("⬅️ Volver", use_container_width=True):
-                    st.session_state.booking_step = 2
+                    st.session_state.booking_step = 1
                     st.rerun()
             
             # Final booking confirmation
@@ -808,7 +810,7 @@ def main():
                 display_time, booking_slots = selected_slot_info
                 
                 # Show booking summary
-                st.info(f"📅 Fecha: {st.session_state.selected_date}")
+                st.info(f"📅 Fecha: {selected_date}")
                 st.info(f"🕐 Horario: {display_time}")
                 st.info(f"📦 Bultos: {st.session_state.numero_bultos}")
                 
@@ -818,7 +820,7 @@ def main():
                 if st.button("✅ Confirmar Reserva", use_container_width=True):
                     with st.spinner("Verificando disponibilidad final..."):
                         is_still_available, availability_message = check_slot_availability_new_flow(
-                            st.session_state.selected_date, 
+                            selected_date, 
                             selected_slot_info, 
                             st.session_state.numero_bultos
                         )
@@ -835,7 +837,7 @@ def main():
                     if st.session_state.numero_bultos <= 4:
                         # Single 30-minute slot
                         new_booking = {
-                            'Fecha': st.session_state.selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
+                            'Fecha': selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
                             'Hora': booking_slots + ':00',
                             'Proveedor': st.session_state.supplier_name,
                             'Numero_de_bultos': st.session_state.numero_bultos,
@@ -846,7 +848,7 @@ def main():
                         new_booking = []
                         for slot in booking_slots:
                             booking_entry = {
-                                'Fecha': st.session_state.selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
+                                'Fecha': selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
                                 'Hora': slot + ':00',
                                 'Proveedor': st.session_state.supplier_name,
                                 'Numero_de_bultos': st.session_state.numero_bultos,
@@ -862,7 +864,7 @@ def main():
                         
                         # Prepare email data
                         email_booking_data = {
-                            'Fecha': st.session_state.selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
+                            'Fecha': selected_date.strftime('%Y-%m-%d') + ' 00:00:00',
                             'Hora': display_time,  # Use the display time for email
                             'Numero_de_bultos': st.session_state.numero_bultos,
                             'Orden_de_compra': orden_compra_combined
