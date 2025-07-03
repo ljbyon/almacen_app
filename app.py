@@ -678,10 +678,7 @@ def main():
                     if not valid_orders:
                         st.error("❌ Al menos una orden de compra es obligatoria")
         
-        # STEP 2: DATE AND TIME SLOT SELECTION
-        elif st.session_state.booking_step == 2:
-        # STEP 2: PURCHASE ORDERS
-        elif st.session_state.booking_step == 2:
+
         # STEP 2: DATE AND TIME SLOT SELECTION
         elif st.session_state.booking_step == 2:
             st.subheader("📅 Paso 2: Seleccionar Fecha y Horario")
