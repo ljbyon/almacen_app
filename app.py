@@ -101,58 +101,77 @@ def download_excel_to_memory():
 
 def save_booking_to_excel(new_booking):
     """Save new booking to Excel file - PRESERVES ALL SHEETS - UPDATED FOR MULTIPLE SLOTS"""
-    try:
-        # Load current data
-        credentials_df, reservas_df, gestion_df = download_excel_to_memory()
-        
-        if reservas_df is None:
-            st.error("❌ No se pudo cargar el archivo Excel")
-            return False
-        
-        # Handle multiple bookings for 1-hour slots
-        if isinstance(new_booking, list):
-            # Multiple bookings (for 1-hour slots)
-            new_rows = pd.DataFrame(new_booking)
-            updated_reservas_df = pd.concat([reservas_df, new_rows], ignore_index=True)
-        else:
-            # Single booking
-            new_row = pd.DataFrame([new_booking])
-            updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
-        
-        # Authenticate and upload
-        user_credentials = UserCredential(USERNAME, PASSWORD)
-        ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
-        
-        # Create Excel file - SAVE ALL SHEETS
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
-            updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
-            gestion_df.to_excel(writer, sheet_name="proveedor_gestion", index=False)
-        
-        # Get the file info
-        file = ctx.web.get_file_by_id(FILE_ID)
-        ctx.load(file)
-        ctx.execute_query()
-        
-        file_name = file.properties['Name']
-        server_relative_url = file.properties['ServerRelativeUrl']
-        folder_url = server_relative_url.replace('/' + file_name, '')
-        
-        # Upload the updated file
-        folder = ctx.web.get_folder_by_server_relative_url(folder_url)
-        excel_buffer.seek(0)
-        folder.files.add(file_name, excel_buffer.getvalue(), True)
-        ctx.execute_query()
-        
-        # Clear cache only after successful save
-        download_excel_to_memory.clear()
-        
-        return True
-        
-    except Exception as e:
-        st.error(f"❌ Error guardando reserva: {str(e)}")
-        return False
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Load current data
+            credentials_df, reservas_df, gestion_df = download_excel_to_memory()
+            
+            if reservas_df is None:
+                st.error("❌ No se pudo cargar el archivo Excel")
+                return False
+            
+            # Handle multiple bookings for 1-hour slots
+            if isinstance(new_booking, list):
+                # Multiple bookings (for 1-hour slots)
+                new_rows = pd.DataFrame(new_booking)
+                updated_reservas_df = pd.concat([reservas_df, new_rows], ignore_index=True)
+            else:
+                # Single booking
+                new_row = pd.DataFrame([new_booking])
+                updated_reservas_df = pd.concat([reservas_df, new_row], ignore_index=True)
+            
+            # Authenticate and upload
+            user_credentials = UserCredential(USERNAME, PASSWORD)
+            ctx = ClientContext(SITE_URL).with_credentials(user_credentials)
+            
+            # Create Excel file - SAVE ALL SHEETS
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                credentials_df.to_excel(writer, sheet_name="proveedor_credencial", index=False)
+                updated_reservas_df.to_excel(writer, sheet_name="proveedor_reservas", index=False)
+                gestion_df.to_excel(writer, sheet_name="proveedor_gestion", index=False)
+            
+            # Get the file info
+            file = ctx.web.get_file_by_id(FILE_ID)
+            ctx.load(file)
+            ctx.execute_query()
+            
+            file_name = file.properties['Name']
+            server_relative_url = file.properties['ServerRelativeUrl']
+            folder_url = server_relative_url.replace('/' + file_name, '')
+            
+            # Upload the updated file
+            folder = ctx.web.get_folder_by_server_relative_url(folder_url)
+            excel_buffer.seek(0)
+            folder.files.add(file_name, excel_buffer.getvalue(), True)
+            ctx.execute_query()
+            
+            # Clear cache only after successful save
+            download_excel_to_memory.clear()
+            
+            return True
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "AADSTS80002" in error_msg or "timed out" in error_msg.lower() or "timeout" in error_msg.lower():
+                if attempt < max_retries - 1:
+                    st.warning(f"⚠️ Error de autenticación (intento {attempt + 1}/{max_retries}). Reintentando en {retry_delay} segundos...")
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                else:
+                    st.error(f"❌ Error de autenticación después de {max_retries} intentos. Esto puede ser un problema temporal de Azure AD. Por favor, intente nuevamente en unos minutos.")
+                    st.error(f"Error técnico: {error_msg}")
+                    return False
+            else:
+                st.error(f"❌ Error guardando reserva: {error_msg}")
+                return False
+    
+    return False
 
 # ─────────────────────────────────────────────────────────────
 # 3. Email Functions
@@ -250,7 +269,7 @@ def send_booking_email(supplier_email, supplier_name, booking_details, cc_emails
     try:
         # Use provided CC emails or default
         if cc_emails is None or len(cc_emails) == 0:
-            cc_emails = [ "ljbyon@dismac.com.bo"]
+            cc_emails = ["ljbyon@dismac.com.bo"]
         else:
             # Add default email to the CC list if not already present
             if "marketplace@dismac.com.bo" not in cc_emails:
@@ -681,7 +700,7 @@ def main():
                     st.button("Continuar ➡️", disabled=True, use_container_width=True)
                     if not valid_orders:
                         st.error("❌ Al menos una orden de compra es obligatoria")
-
+        
 
         # STEP 2: DATE AND TIME SLOT SELECTION
         elif st.session_state.booking_step == 2:
