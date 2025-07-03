@@ -646,8 +646,7 @@ def main():
                     st.button("Continuar ➡️", disabled=True, use_container_width=True)
                     st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
         
-        # STEP 2: PURCHASE ORDERS
-        elif st.session_state.booking_step == 2:
+
         # STEP 2: PURCHASE ORDERS
         elif st.session_state.booking_step == 2:
             st.subheader("📋 Paso 2: Órdenes de Compra")
