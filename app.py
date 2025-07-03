@@ -544,7 +544,7 @@ def main():
     if 'selected_date' not in st.session_state:
         st.session_state.selected_date = None
     if 'numero_bultos' not in st.session_state:
-        st.session_state.numero_bultos = 1
+        st.session_state.numero_bultos = None
     if 'orden_compra_list' not in st.session_state:
         st.session_state.orden_compra_list = ['']
     
@@ -569,7 +569,7 @@ def main():
                         # Reset booking flow
                         st.session_state.booking_step = 1
                         st.session_state.selected_date = None
-                        st.session_state.numero_bultos = 1
+                        st.session_state.numero_bultos = None
                         st.session_state.orden_compra_list = ['']
                         st.success(message)
                         st.rerun()
@@ -592,7 +592,7 @@ def main():
                 # Reset booking flow
                 st.session_state.booking_step = 1
                 st.session_state.selected_date = None
-                st.session_state.numero_bultos = 1
+                st.session_state.numero_bultos = None
                 st.session_state.orden_compra_list = ['']
                 st.rerun()
         
@@ -623,25 +623,31 @@ def main():
             numero_bultos = st.number_input(
                 "📦 Número de bultos", 
                 min_value=1, 
-                value=st.session_state.numero_bultos,
+                value=None,
                 help="Cantidad de bultos o paquetes a entregar"
             )
             
             # Package count info
-            if numero_bultos <= 4:
-                st.info("💡 Con 1-4 bultos, podrá reservar slots de 30 minutos")
-            else:
-                st.info("💡 Con 5 o más bultos, podrá reservar slots de 1 hora")
+            if numero_bultos is not None:
+                if numero_bultos <= 4:
+                    st.info("💡 Con 1-4 bultos, podrá reservar slots de 30 minutos")
+                else:
+                    st.info("💡 Con 5 o más bultos, podrá reservar slots de 1 hora")
             
             col1, col2, col3 = st.columns([1, 1, 1])
             with col2:
-                if st.button("Continuar ➡️", use_container_width=True):
-                    st.session_state.selected_date = selected_date
-                    st.session_state.numero_bultos = numero_bultos
-                    st.session_state.booking_step = 2
-                    st.rerun()
+                if numero_bultos is not None:
+                    if st.button("Continuar ➡️", use_container_width=True):
+                        st.session_state.selected_date = selected_date
+                        st.session_state.numero_bultos = numero_bultos
+                        st.session_state.booking_step = 2
+                        st.rerun()
+                else:
+                    st.button("Continuar ➡️", disabled=True, use_container_width=True)
+                    st.error("Es obligatorio ingresar la cantidad de bultos para proceder con la reserva.")
         
-
+        # STEP 2: PURCHASE ORDERS
+        elif st.session_state.booking_step == 2:
         # STEP 2: PURCHASE ORDERS
         elif st.session_state.booking_step == 2:
             st.subheader("📋 Paso 2: Órdenes de Compra")
@@ -891,7 +897,7 @@ def main():
                         st.session_state.supplier_cc_emails = []
                         st.session_state.booking_step = 1
                         st.session_state.selected_date = None
-                        st.session_state.numero_bultos = 1
+                        st.session_state.numero_bultos = None
                         st.session_state.orden_compra_list = ['']
                         
                         # Wait a moment then rerun
