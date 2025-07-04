@@ -595,8 +595,6 @@ def main():
         st.session_state.supplier_cc_emails = []
     if 'slot_error_message' not in st.session_state:
         st.session_state.slot_error_message = None
-    if 'numero_bultos' not in st.session_state:
-        st.session_state.numero_bultos = None
     if 'orden_compra_list' not in st.session_state:
         st.session_state.orden_compra_list = ['']
     
@@ -618,9 +616,10 @@ def main():
                         st.session_state.supplier_name = usuario
                         st.session_state.supplier_email = email
                         st.session_state.supplier_cc_emails = cc_emails
-                        # Clear any previous session data
+                        # Clear booking session data
                         st.session_state.orden_compra_list = ['']
-                        st.session_state.numero_bultos = None
+                        if 'numero_bultos_input' in st.session_state:
+                            del st.session_state.numero_bultos_input
                         if 'selected_slot' in st.session_state:
                             del st.session_state.selected_slot
                         st.success(message)
@@ -643,7 +642,8 @@ def main():
                 st.session_state.supplier_cc_emails = []
                 # Clear booking session data
                 st.session_state.orden_compra_list = ['']
-                st.session_state.numero_bultos = None
+                if 'numero_bultos_input' in st.session_state:
+                    del st.session_state.numero_bultos_input
                 if 'selected_slot' in st.session_state:
                     del st.session_state.selected_slot
                 st.rerun()
@@ -655,24 +655,20 @@ def main():
         st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Complete la información de entrega antes de seleccionar fecha y horario.</p>', unsafe_allow_html=True)
         
         # Show permanent information about time slot durations
-
+        st.info("ℹ️ **Duración de horarios:** 1-4 bultos = 30 minutos | 5+ bultos = 1 hora")
         
         # Number of bultos (MANDATORY, NO DEFAULT)
         numero_bultos = st.number_input(
             "📦 Número de bultos *", 
             min_value=1, 
-            value=st.session_state.numero_bultos if st.session_state.numero_bultos else None,
+            key="numero_bultos_input",
             help="Cantidad de bultos o paquetes a entregar (obligatorio)",
             placeholder="Ingrese el número de bultos"
         )
-        st.info(
-            "ℹ️ Para 1-4 bultos, se asignarán horarios de 30 minutos.\n\n"
-            "ℹ️ Para 5 o más bultos, se asignarán horarios de 1 hora de duración."
-        )
         
-        # Update session state
-        if numero_bultos:
-            st.session_state.numero_bultos = numero_bultos
+        # Get value from session state (automatically updated by key)
+        if 'numero_bultos_input' in st.session_state and st.session_state.numero_bultos_input:
+            numero_bultos = st.session_state.numero_bultos_input
         
         # Multiple Purchase orders section
         st.write("📋 **Órdenes de compra** *")
@@ -718,7 +714,7 @@ def main():
         
         # Check if minimum requirements are met to proceed
         valid_orders = [orden.strip() for orden in orden_compra_values if orden.strip()]
-        can_proceed = numero_bultos and valid_orders
+        can_proceed = numero_bultos and numero_bultos > 0 and valid_orders
         
         if not can_proceed:
             st.warning("⚠️ Complete el número de bultos y al menos una orden de compra para continuar.")
@@ -934,7 +930,8 @@ def main():
                     
                     # Clear session data and log off user
                     st.session_state.orden_compra_list = ['']
-                    st.session_state.numero_bultos = None
+                    if 'numero_bultos_input' in st.session_state:
+                        del st.session_state.numero_bultos_input
                     st.info("Cerrando sesión automáticamente...")
                     st.session_state.authenticated = False
                     st.session_state.supplier_name = None
