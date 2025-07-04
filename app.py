@@ -750,19 +750,43 @@ def main():
         if st.session_state.slot_error_message:
             st.error(f"❌ {st.session_state.slot_error_message}")
         
-        # Get available slots based on bultos count and current reservations
-        available_slots = get_available_slots(selected_date, reservas_df, numero_bultos)
+        # Get ALL possible slots and determine availability
+        weekday_slots, saturday_slots = generate_all_30min_slots()
+        
+        if selected_date.weekday() == 5:  # Saturday
+            all_30min_slots = saturday_slots
+        else:  # Monday-Friday
+            all_30min_slots = weekday_slots
+        
+        # Get booked slots for this date
+        target_date = selected_date.strftime('%Y-%m-%d')
+        date_mask = reservas_df['Fecha'].astype(str).str.contains(target_date, na=False)
+        booked_hours = reservas_df[date_mask]['Hora'].tolist()
+        booked_slots = parse_booked_slots(booked_hours)
+        
+        # Generate display slots based on bultos
+        if numero_bultos >= 5:
+            # For 5+ bultos, show all possible 1-hour slots with availability
+            display_slots = []
+            for i in range(len(all_30min_slots) - 1):
+                current_slot = all_30min_slots[i]
+                next_slot = get_next_slot(current_slot)
+                
+                # Check if this is indeed the next slot in our list
+                if i + 1 < len(all_30min_slots) and all_30min_slots[i + 1] == next_slot:
+                    is_available = current_slot not in booked_slots and next_slot not in booked_slots
+                    display_slots.append((current_slot, is_available))
+        else:
+            # For 1-4 bultos, show all 30-minute slots with availability
+            display_slots = [(slot, slot not in booked_slots) for slot in all_30min_slots]
         
         # DEBUG: Show what slots are booked (optional - can be removed in production)
         if st.checkbox("🔍 Mostrar información de depuración", value=False):
-            target_date = selected_date.strftime('%Y-%m-%d')
-            date_mask = reservas_df['Fecha'].astype(str).str.contains(target_date, na=False)
-            booked_hours = reservas_df[date_mask]['Hora'].tolist()
-            booked_slots = parse_booked_slots(booked_hours)
             st.write(f"**Fecha buscada:** {target_date}")
             st.write(f"**Registros encontrados:** {len(booked_hours)}")
             st.write(f"**Horas en BD:** {booked_hours}")
             st.write(f"**Slots parseados:** {booked_slots}")
+            st.write(f"**Slots a mostrar:** {len(display_slots)}")
             
             # Show all reservations for this date
             date_reservations = reservas_df[date_mask]
@@ -772,63 +796,66 @@ def main():
             else:
                 st.write("**No se encontraron reservas para esta fecha**")
         
-        if not available_slots:
-            if numero_bultos >= 5:
-                st.warning("❌ No hay horarios de 1 hora disponibles para esta fecha")
-            else:
-                st.warning("❌ No hay horarios disponibles para esta fecha")
+        if not display_slots:
+            st.warning("❌ No hay horarios para esta fecha")
             return
         
-        # Display slots (2 per row)
+        # Display slots (2 per row) - SHOW ALL WITH AVAILABILITY STATUS
         selected_slot = None
         
-        for i in range(0, len(available_slots), 2):
+        for i in range(0, len(display_slots), 2):
             col1, col2 = st.columns(2)
             
             # First slot
-            slot1 = available_slots[i]
+            slot1, is_available1 = display_slots[i]
             
-            # Button text based on bultos
+            # Button text based on bultos and availability
             if numero_bultos >= 5:
-                button_text1 = f"✅ {slot1} (1h)"
+                button_text1 = f"✅ {slot1} (1h)" if is_available1 else f"🚫 {slot1} (Ocupado)"
             else:
-                button_text1 = f"✅ {slot1}"
+                button_text1 = f"✅ {slot1}" if is_available1 else f"🚫 {slot1} (Ocupado)"
             
             with col1:
-                if st.button(button_text1, key=f"slot_{i}", use_container_width=True):
-                    # FRESH CHECK ON CLICK
-                    with st.spinner("Verificando disponibilidad..."):
-                        is_available, message = check_slot_availability(selected_date, slot1, numero_bultos)
-                    
-                    if is_available:
-                        selected_slot = slot1
-                        st.session_state.slot_error_message = None
-                    else:
-                        st.session_state.slot_error_message = message
-                        st.rerun()
-            
-            # Second slot (if exists)
-            if i + 1 < len(available_slots):
-                slot2 = available_slots[i + 1]
-                
-                # Button text based on bultos
-                if numero_bultos >= 5:
-                    button_text2 = f"✅ {slot2} (1h)"
+                if not is_available1:
+                    st.button(button_text1, disabled=True, key=f"slot_{i}", use_container_width=True)
                 else:
-                    button_text2 = f"✅ {slot2}"
-                
-                with col2:
-                    if st.button(button_text2, key=f"slot_{i+1}", use_container_width=True):
+                    if st.button(button_text1, key=f"slot_{i}", use_container_width=True):
                         # FRESH CHECK ON CLICK
                         with st.spinner("Verificando disponibilidad..."):
-                            is_available, message = check_slot_availability(selected_date, slot2, numero_bultos)
+                            is_available, message = check_slot_availability(selected_date, slot1, numero_bultos)
                         
                         if is_available:
-                            selected_slot = slot2
+                            selected_slot = slot1
                             st.session_state.slot_error_message = None
                         else:
                             st.session_state.slot_error_message = message
                             st.rerun()
+            
+            # Second slot (if exists)
+            if i + 1 < len(display_slots):
+                slot2, is_available2 = display_slots[i + 1]
+                
+                # Button text based on bultos and availability
+                if numero_bultos >= 5:
+                    button_text2 = f"✅ {slot2} (1h)" if is_available2 else f"🚫 {slot2} (Ocupado)"
+                else:
+                    button_text2 = f"✅ {slot2}" if is_available2 else f"🚫 {slot2} (Ocupado)"
+                
+                with col2:
+                    if not is_available2:
+                        st.button(button_text2, disabled=True, key=f"slot_{i+1}", use_container_width=True)
+                    else:
+                        if st.button(button_text2, key=f"slot_{i+1}", use_container_width=True):
+                            # FRESH CHECK ON CLICK
+                            with st.spinner("Verificando disponibilidad..."):
+                                is_available, message = check_slot_availability(selected_date, slot2, numero_bultos)
+                            
+                            if is_available:
+                                selected_slot = slot2
+                                st.session_state.slot_error_message = None
+                            else:
+                                st.session_state.slot_error_message = message
+                                st.rerun()
         
         # STEP 4: Confirmation (ONLY AFTER SLOT SELECTION)
         if selected_slot or 'selected_slot' in st.session_state:
