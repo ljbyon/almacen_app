@@ -655,7 +655,10 @@ def main():
         st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Complete la información de entrega antes de seleccionar fecha y horario.</p>', unsafe_allow_html=True)
         
         # Show permanent information about time slot durations
-        st.info("ℹ️ **Duración de horarios:** 1-4 bultos = 30 minutos | 5+ bultos = 1 hora")
+        st.info(
+            "ℹ️ Para 1-4 bultos, se asignarán horarios de 30 minutos.\n\n"
+            "ℹ️ Para 5 o más bultos, se asignarán horarios de 1 hora de duración."
+        )
         
         # Number of bultos (MANDATORY, NO DEFAULT)
         numero_bultos = st.number_input(
