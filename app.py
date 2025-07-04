@@ -362,27 +362,49 @@ def parse_booked_slots(booked_hours):
     all_booked_slots = []
     
     for booked_hora in booked_hours:
-        hora_str = str(booked_hora)
+        hora_str = str(booked_hora).strip()
+        
+        # Skip empty or NaN values
+        if not hora_str or hora_str.lower() in ['nan', 'none', '']:
+            continue
         
         # Check if it contains comma (combined slots)
         if ',' in hora_str:
             # Split by comma and clean each slot
             slots = [slot.strip() for slot in hora_str.split(',')]
             for slot in slots:
-                if ':' in slot:
-                    parts = slot.split(':')
-                    if len(parts) >= 2:
-                        formatted_slot = f"{int(parts[0]):02d}:{parts[1]}"
-                        all_booked_slots.append(formatted_slot)
+                formatted_slot = format_time_slot(slot)
+                if formatted_slot:
+                    all_booked_slots.append(formatted_slot)
         else:
             # Single slot
-            if ':' in hora_str:
-                parts = hora_str.split(':')
-                if len(parts) >= 2:
-                    formatted_slot = f"{int(parts[0]):02d}:{parts[1]}"
-                    all_booked_slots.append(formatted_slot)
+            formatted_slot = format_time_slot(hora_str)
+            if formatted_slot:
+                all_booked_slots.append(formatted_slot)
     
     return all_booked_slots
+
+def format_time_slot(time_str):
+    """Format time string to HH:MM format, handling various input formats"""
+    try:
+        time_str = str(time_str).strip()
+        
+        # Handle different time formats that might come from Excel
+        if ':' in time_str:
+            parts = time_str.split(':')
+            if len(parts) >= 2:
+                hour = int(parts[0])
+                minute = int(parts[1])
+                return f"{hour:02d}:{minute:02d}"
+        
+        # Handle time objects or datetime objects
+        if hasattr(time_str, 'hour') and hasattr(time_str, 'minute'):
+            return f"{time_str.hour:02d}:{time_str.minute:02d}"
+        
+        return None
+        
+    except (ValueError, AttributeError, TypeError):
+        return None
 
 def generate_all_30min_slots():
     """Generate all possible 30-minute slots"""
@@ -443,9 +465,12 @@ def get_available_slots(selected_date, reservas_df, numero_bultos):
     else:
         all_30min_slots = weekday_slots
     
-    # Get booked slots for this date
-    date_str = selected_date.strftime('%Y-%m-%d')
-    booked_hours = reservas_df[reservas_df['Fecha'] == date_str]['Hora'].tolist()
+    # Get booked slots for this date - IMPROVED DATE MATCHING
+    target_date = selected_date.strftime('%Y-%m-%d')
+    
+    # Filter reservations for the selected date (handle different date formats)
+    date_mask = reservas_df['Fecha'].astype(str).str.contains(target_date, na=False)
+    booked_hours = reservas_df[date_mask]['Hora'].tolist()
     
     # Parse booked slots (handles combined slots)
     booked_slots = parse_booked_slots(booked_hours)
@@ -519,9 +544,10 @@ def check_slot_availability(selected_date, slot_time, numero_bultos):
         if fresh_reservas_df is None:
             return False, "Error al verificar disponibilidad"
         
-        # Get booked slots for this date
-        date_str = selected_date.strftime('%Y-%m-%d') + ' 00:00:00'
-        booked_hours = fresh_reservas_df[fresh_reservas_df['Fecha'] == date_str]['Hora'].tolist()
+        # Get booked slots for this date - IMPROVED DATE MATCHING
+        target_date = selected_date.strftime('%Y-%m-%d')
+        date_mask = fresh_reservas_df['Fecha'].astype(str).str.contains(target_date, na=False)
+        booked_hours = fresh_reservas_df[date_mask]['Hora'].tolist()
         
         # Parse booked slots (handles combined slots)
         booked_slots = parse_booked_slots(booked_hours)
@@ -726,6 +752,25 @@ def main():
         
         # Get available slots based on bultos count and current reservations
         available_slots = get_available_slots(selected_date, reservas_df, numero_bultos)
+        
+        # DEBUG: Show what slots are booked (optional - can be removed in production)
+        if st.checkbox("🔍 Mostrar información de depuración", value=False):
+            target_date = selected_date.strftime('%Y-%m-%d')
+            date_mask = reservas_df['Fecha'].astype(str).str.contains(target_date, na=False)
+            booked_hours = reservas_df[date_mask]['Hora'].tolist()
+            booked_slots = parse_booked_slots(booked_hours)
+            st.write(f"**Fecha buscada:** {target_date}")
+            st.write(f"**Registros encontrados:** {len(booked_hours)}")
+            st.write(f"**Horas en BD:** {booked_hours}")
+            st.write(f"**Slots parseados:** {booked_slots}")
+            
+            # Show all reservations for this date
+            date_reservations = reservas_df[date_mask]
+            if not date_reservations.empty:
+                st.write("**Reservas para esta fecha:**")
+                st.dataframe(date_reservations[['Fecha', 'Hora', 'Proveedor', 'Numero_de_bultos']])
+            else:
+                st.write("**No se encontraron reservas para esta fecha**")
         
         if not available_slots:
             if numero_bultos >= 5:
