@@ -244,11 +244,11 @@ def send_booking_email(supplier_email, supplier_name, booking_details, cc_emails
     try:
         # Use provided CC emails or default
         if cc_emails is None or len(cc_emails) == 0:
-            cc_emails = ["ljbyon@dismac.com.bo"]
+            cc_emails = ["marketplace@dismac.com.bo", "ljbyon@dismac.com.bo"]
         else:
             # Add default email to the CC list if not already present
             if "marketplace@dismac.com.bo" not in cc_emails:
-                cc_emails = cc_emails + ["ljbyon@dismac.com.bo"]
+                cc_emails = cc_emails + ["marketplace@dismac.com.bo", "ljbyon@dismac.com.bo"]
         
         # Email content
         subject = "Confirmación de Reserva para Entrega de Mercadería"
@@ -654,6 +654,9 @@ def main():
         st.subheader("📦 Información de Entrega")
         st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Complete la información de entrega antes de seleccionar fecha y horario.</p>', unsafe_allow_html=True)
         
+        # Show permanent information about time slot durations
+        st.info("ℹ️ **Duración de horarios:** 1-4 bultos = 30 minutos | 5+ bultos = 1 hora")
+        
         # Number of bultos (MANDATORY, NO DEFAULT)
         numero_bultos = st.number_input(
             "📦 Número de bultos *", 
@@ -666,12 +669,6 @@ def main():
         # Update session state
         if numero_bultos:
             st.session_state.numero_bultos = numero_bultos
-            
-            # Show info about time slot duration
-            if numero_bultos >= 5:
-                st.info("ℹ️ Para 5 o más bultos, se asignarán horarios de 1 hora de duración.")
-            else:
-                st.info("ℹ️ Para 1-4 bultos, se asignarán horarios de 30 minutos.")
         
         # Multiple Purchase orders section
         st.write("📋 **Órdenes de compra** *")
