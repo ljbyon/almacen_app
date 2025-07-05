@@ -778,21 +778,6 @@ def main():
             # For 1-4 bultos, show all 30-minute slots with availability
             display_slots = [(slot, slot not in booked_slots) for slot in all_30min_slots]
         
-        # DEBUG: Show what slots are booked (optional - can be removed in production)
-        if st.checkbox("🔍 Mostrar información de depuración", value=False):
-            st.write(f"**Fecha buscada:** {target_date}")
-            st.write(f"**Registros encontrados:** {len(booked_hours)}")
-            st.write(f"**Horas en BD:** {booked_hours}")
-            st.write(f"**Slots parseados:** {booked_slots}")
-            st.write(f"**Slots a mostrar:** {len(display_slots)}")
-            
-            # Show all reservations for this date
-            date_reservations = reservas_df[date_mask]
-            if not date_reservations.empty:
-                st.write("**Reservas para esta fecha:**")
-                st.dataframe(date_reservations[['Fecha', 'Hora', 'Proveedor', 'Numero_de_bultos']])
-            else:
-                st.write("**No se encontraron reservas para esta fecha**")
         
         if not display_slots:
             st.warning("❌ No hay horarios para esta fecha")
