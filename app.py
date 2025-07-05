@@ -652,10 +652,11 @@ def main():
         
         # STEP 1: Delivery Information (MOVED TO FIRST)
         st.subheader("📦 Información de Entrega")
-        st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Complete la información de entrega antes de seleccionar fecha y horario.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Este sistema es únicamente para el registro de entregas Marketplace (no incluye entregas locales y corporativos).</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Registre la cantidad de bultos y por lo menos 1 orden de compra para proceder con el registro.</p>', unsafe_allow_html=True)
         
         # Show permanent information about time slot durations
-        st.info("ℹ️ **Duración de horarios:** 1-4 bultos = 30 minutos | 5+ bultos = 1 hora")
+        st.info("ℹ️ **La duración del horario de reserva dependerá de la cantidad de bultos:** 1-4 bultos = 30 minutos y 5+ bultos = 1 hora")
         
         # Number of bultos (MANDATORY, NO DEFAULT)
         numero_bultos = st.number_input(
@@ -682,7 +683,7 @@ def main():
                 orden_value = st.text_input(
                     f"Orden {i+1}",
                     value=orden,
-                    placeholder=f"Ej: OC-2024-00{i+1}",
+                    placeholder=f"Ej: 0000000",
                     key=f"orden_{i}"
                 )
                 orden_compra_values.append(orden_value)
