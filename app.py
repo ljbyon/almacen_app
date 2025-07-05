@@ -660,7 +660,8 @@ def main():
         # Number of bultos (MANDATORY, NO DEFAULT)
         numero_bultos = st.number_input(
             "📦 Número de bultos *", 
-            min_value=1, 
+            min_value=0, 
+            value=None,
             key="numero_bultos_input",
             help="Cantidad de bultos o paquetes a entregar (obligatorio)",
             placeholder="Ingrese el número de bultos"
