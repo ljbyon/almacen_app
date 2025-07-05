@@ -653,7 +653,6 @@ def main():
         # STEP 1: Delivery Information (MOVED TO FIRST)
         st.subheader("📦 Información de Entrega")
         st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Este sistema es únicamente para el registro de entregas Marketplace (no incluye entregas locales y corporativos).</p>', unsafe_allow_html=True)
-        st.markdown('<p style="color: red; font-size: 14px; margin-top: -10px;">Registre la cantidad de bultos y por lo menos 1 orden de compra para proceder con el registro.</p>', unsafe_allow_html=True)
         
         # Show permanent information about time slot durations
         st.info("ℹ️ **La duración del horario de reserva dependerá de la cantidad de bultos:** 1-4 bultos = 30 minutos y 5+ bultos = 1 hora")
@@ -710,7 +709,7 @@ def main():
         # Add button
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("➕ Agregar otra orden", use_container_width=True):
+            if st.button("➕ Agregar", use_container_width=True):
                 st.session_state.orden_compra_list.append('')
                 st.rerun()
         
