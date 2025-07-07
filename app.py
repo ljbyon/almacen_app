@@ -103,6 +103,7 @@ def save_booking_to_excel(new_booking):
     """Save new booking to Excel file - PRESERVES ALL SHEETS - SINGLE ROW FOR 1-HOUR SLOTS"""
     try:
         # Load current data
+        download_excel_to_memory.clear()
         credentials_df, reservas_df, gestion_df = download_excel_to_memory()
         
         if reservas_df is None:
@@ -120,6 +121,7 @@ def save_booking_to_excel(new_booking):
         
         if not existing_booking.empty:
             st.error("❌ Otro proveedor acaba de reservar este horario")
+            download_excel_to_memory.clear()
             return False
         # 🔒 END ADDITION
         
