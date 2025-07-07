@@ -108,6 +108,20 @@ def save_booking_to_excel(new_booking):
         if reservas_df is None:
             st.error("❌ No se pudo cargar el archivo Excel")
             return False
+
+        # 🔒 ADD THIS: Final check INSIDE save function
+        fecha_reserva = new_booking['Fecha']
+        hora_reserva = new_booking['Hora']
+        
+        existing_booking = reservas_df[
+            (reservas_df['Fecha'] == fecha_reserva) & 
+            (reservas_df['Hora'] == hora_reserva)
+        ]
+        
+        if not existing_booking.empty:
+            st.error("❌ Otro proveedor acaba de reservar este horario")
+            return False
+        # 🔒 END ADDITION
         
         # Add new booking as single row
         new_row = pd.DataFrame([new_booking])
